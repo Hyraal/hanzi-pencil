@@ -8,131 +8,120 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Hanzi">
-<meta name="theme-color" content="#f4efe4">
+<meta name="theme-color" content="#d9e8cf">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;900&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="app">
 
-  <!-- HOME -->
+  <!-- HOME: il quaderno -->
   <section id="home" class="screen active">
-    <header class="top">
-      <div class="seal">字</div>
-      <div>
-        <h1>Hanzi Pencil</h1>
-        <p class="sub">Scrittura HSK 1–2 · 600 caratteri</p>
+    <header class="cover">
+      <div class="cover-title">
+        <h1>汉字练习本</h1>
+        <p>Quaderno di scrittura HSK</p>
       </div>
+      <dl class="cover-fields">
+        <div><dt>级别</dt><dd class="hand" id="fieldLevel">HSK 1</dd></div>
+        <div><dt>复习</dt><dd class="hand" id="fieldDue">0</dd></div>
+      </dl>
     </header>
 
-    <div class="today">
-      <div class="today-num"><span id="dueCount">0</span><small>da ripassare</small></div>
-      <button class="btn primary big" id="btnReview">Ripasso</button>
-    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="1" aria-selected="true">HSK 1</button>
+      <button role="tab" data-tab="2" aria-selected="false">HSK 2</button>
+    </nav>
 
-    <div class="levels">
-      <article class="level" data-level="1">
-        <div class="level-head"><h2>HSK 1</h2><span class="pct" data-pct="1">0%</span></div>
-        <div class="bar"><i data-bar="1"></i></div>
-        <p class="meta" data-meta="1"></p>
-        <div class="row">
-          <button class="btn primary" data-learn="1">Impara nuovi</button>
-          <button class="btn ghost" data-list="1">Tutti i caratteri</button>
+    <div class="page">
+      <div class="page-head">
+        <p class="tally" id="tally"></p>
+        <div class="actions">
+          <button class="btn" id="btnReview">Ripassa</button>
+          <button class="btn ink" id="btnLearn">Impara nuovi</button>
         </div>
-      </article>
-      <article class="level" data-level="2">
-        <div class="level-head"><h2>HSK 2</h2><span class="pct" data-pct="2">0%</span></div>
-        <div class="bar"><i data-bar="2"></i></div>
-        <p class="meta" data-meta="2"></p>
-        <div class="row">
-          <button class="btn primary" data-learn="2">Impara nuovi</button>
-          <button class="btn ghost" data-list="2">Tutti i caratteri</button>
-        </div>
-      </article>
+      </div>
+      <div class="sheet" id="sheet"></div>
+      <p class="key">
+        <span class="k k2">字</span> imparato
+        <span class="k k1">字</span> in studio
+        <span class="k k0">字</span> da imparare
+        <span class="k kh">字</span> sbagliato spesso
+      </p>
     </div>
-
-    <section class="hard" id="hardBox" hidden>
-      <h3>Dove sbagli di più</h3>
-      <div class="hard-list" id="hardList"></div>
-    </section>
 
     <footer class="settings">
-      <label class="switch"><input type="checkbox" id="optPencil" checked><span>Solo Apple Pencil</span></label>
-      <label class="num">Nuovi per sessione
+      <label class="check"><input type="checkbox" id="optPencil" checked> Scrivi solo con la Apple Pencil</label>
+      <label>Caratteri nuovi per sessione
         <select id="optNew"><option>5</option><option selected>8</option><option>10</option><option>15</option></select>
       </label>
       <button class="link" id="btnBackup">Backup progressi</button>
     </footer>
   </section>
 
-  <!-- LIST -->
-  <section id="list" class="screen">
-    <header class="bar-top">
-      <button class="btn ghost" data-back>‹ Home</button>
-      <h2 id="listTitle">HSK 1</h2>
-      <span></span>
-    </header>
-    <div class="legend"><span class="dot s0"></span>nuovo <span class="dot s1"></span>in studio <span class="dot s2"></span>imparato</div>
-    <div class="grid" id="grid"></div>
-  </section>
-
-  <!-- PRACTICE -->
+  <!-- ESERCIZIO -->
   <section id="practice" class="screen">
-    <header class="bar-top">
-      <button class="btn ghost" id="btnExit">‹ Esci</button>
-      <div class="progress"><i id="sessBar"></i></div>
+    <header class="practice-top">
+      <button class="btn plain" id="btnExit">‹ Quaderno</button>
+      <div class="progress" aria-hidden="true"><i id="sessBar"></i></div>
       <span class="count" id="sessCount"></span>
     </header>
+
     <div class="practice-body">
-      <div class="board-wrap">
+      <div class="board-col">
         <div class="board" id="board">
-          <svg class="tian" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <svg class="mi" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <line x1="0" y1="50" x2="100" y2="50"/><line x1="50" y1="0" x2="50" y2="100"/>
             <line x1="0" y1="0" x2="100" y2="100"/><line x1="100" y1="0" x2="0" y2="100"/>
           </svg>
           <div id="writer"></div>
+          <div class="stamp" id="stamp" aria-live="polite"></div>
         </div>
+        <div class="order" id="order" aria-label="Ordine dei tratti"></div>
         <div class="tools">
-          <button class="btn ghost" id="btnAnim">▶︎ Ordine tratti</button>
-          <button class="btn ghost" id="btnRestart">↺ Ricomincia</button>
-          <button class="btn ghost" id="btnReveal">Mostra</button>
+          <button class="btn plain" id="btnAnim">Rivedi i tratti</button>
+          <button class="btn plain" id="btnRestart">Ricomincia</button>
+          <button class="btn plain" id="btnReveal">Aiuto</button>
         </div>
       </div>
-      <aside class="info">
+
+      <aside class="margin">
         <p class="stage" id="stage"></p>
         <p class="pinyin" id="pinyin"></p>
         <p class="meaning" id="meaning"></p>
-        <div class="example" id="example">
+        <div class="example">
           <p class="ex-zh" id="exZh"></p>
           <p class="ex-py" id="exPy"></p>
           <p class="ex-it" id="exIt"></p>
         </div>
         <p class="feedback" id="feedback"></p>
-        <button class="btn primary big" id="btnNext" hidden>Avanti</button>
+        <button class="btn ink big" id="btnNext" hidden>Avanti</button>
       </aside>
     </div>
   </section>
 
-  <!-- DONE -->
+  <!-- FINE SESSIONE -->
   <section id="done" class="screen">
-    <div class="done-box">
-      <div class="seal big">好</div>
+    <div class="done">
+      <div class="done-stamp" id="doneStamp">好</div>
       <h2 id="doneTitle">Sessione finita</h2>
       <p id="doneText"></p>
-      <button class="btn primary big" data-back>Torna alla home</button>
+      <button class="btn ink big" data-back>Torna al quaderno</button>
     </div>
   </section>
 
-  <!-- BACKUP -->
   <dialog id="backup">
     <h3>Backup progressi</h3>
     <p class="small">I progressi sono salvati solo su questo iPad. Copia il testo per conservarlo, oppure incolla un backup e premi Ripristina.</p>
     <textarea id="backupText" rows="6"></textarea>
     <div class="row">
-      <button class="btn ghost" id="btnCopy">Copia</button>
-      <button class="btn ghost" id="btnRestore">Ripristina</button>
-      <button class="btn primary" id="btnClose">Chiudi</button>
+      <button class="btn plain" id="btnCopy">Copia</button>
+      <button class="btn plain" id="btnRestore">Ripristina</button>
+      <button class="btn ink" id="btnClose">Chiudi</button>
     </div>
   </dialog>
 </div>

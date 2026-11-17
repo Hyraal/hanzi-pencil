@@ -43,28 +43,38 @@ const status = c => { const s = srs[c]; return !s ? 0 : s.b >= LEARNED_BOX ? 2 :
 const dueList = () => CHARS.filter(x => srs[x.c] && srs[x.c].d <= endOfToday())
   .sort((a, b) => srs[a.c].d - srs[b.c].d).map(x => x.c);
 
-// ---------- home ----------
+// ---------- home: il quaderno ----------
+let tab = 1;
+const hardSet = () => new Set(Object.entries(srs).filter(([, s]) => s.n >= 2 && s.e / s.n >= 1.5).map(([c]) => c));
+
 function renderHome() {
-  $('#dueCount').textContent = dueList().length;
-  $('#btnReview').disabled = dueList().length === 0;
-  for (const lv of [1, 2]) {
-    const items = CHARS.filter(x => x.l === lv);
-    const seen = items.filter(x => srs[x.c]).length;
-    const learned = items.filter(x => status(x.c) === 2).length;
-    const pct = Math.round(learned / items.length * 100);
-    $(`[data-pct="${lv}"]`).textContent = pct + '%';
-    $(`[data-bar="${lv}"]`).style.width = pct + '%';
-    $(`[data-meta="${lv}"]`).textContent = `${learned} imparati · ${seen - learned} in studio · ${items.length - seen} nuovi`;
-    $(`[data-learn="${lv}"]`).disabled = seen === items.length;
+  const due = dueList().length;
+  $('#fieldDue').textContent = due;
+  $('#fieldLevel').textContent = 'HSK ' + tab;
+  $$('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(+b.dataset.tab === tab)));
+  $('#btnReview').disabled = due === 0;
+  $('#btnReview').textContent = due ? `Ripassa ${due}` : 'Niente da ripassare';
+
+  const items = CHARS.filter(x => x.l === tab);
+  const seen = items.filter(x => srs[x.c]).length;
+  const learned = items.filter(x => status(x.c) === 2).length;
+  const left = items.length - seen;
+  $('#tally').innerHTML = `<b>${learned}</b> imparati, <b>${seen - learned}</b> in studio, <b>${left}</b> ancora da imparare su ${items.length}.`;
+  $('#btnLearn').disabled = left === 0;
+  $('#btnLearn').textContent = left ? `Impara ${Math.min(opts.perSession, left)} nuovi` : 'Livello completato';
+
+  const hard = hardSet();
+  const sheet = $('#sheet'); sheet.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (const x of items) {
+    const b = document.createElement('button');
+    b.className = 'cell s' + status(x.c) + (hard.has(x.c) ? ' hard' : '');
+    b.textContent = x.c;
+    b.setAttribute('aria-label', `${x.c} ${x.p}, ${x.m}`);
+    b.onclick = () => startSession([x.c], 'single');
+    frag.append(b);
   }
-  const hard = Object.entries(srs).filter(([, s]) => s.e > 0)
-    .sort((a, b) => (b[1].e / b[1].n) - (a[1].e / a[1].n)).slice(0, 12);
-  $('#hardBox').hidden = hard.length === 0;
-  $('#hardList').innerHTML = '';
-  for (const [c] of hard) {
-    const b = document.createElement('button'); b.textContent = c;
-    b.onclick = () => startSession([c], 'single'); $('#hardList').append(b);
-  }
+  sheet.append(frag);
   $('#optPencil').checked = opts.pencil;
   $('#optNew').value = String(opts.perSession);
 }
@@ -72,19 +82,6 @@ function renderHome() {
 function show(id) {
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
   window.scrollTo(0, 0);
-}
-
-// ---------- list ----------
-function openList(lv) {
-  $('#listTitle').textContent = 'HSK ' + lv;
-  const g = $('#grid'); g.innerHTML = '';
-  for (const x of CHARS.filter(x => x.l === lv)) {
-    const b = document.createElement('button');
-    b.textContent = x.c; b.className = 's' + status(x.c); b.title = x.p;
-    b.onclick = () => startSession([x.c], 'single');
-    g.append(b);
-  }
-  show('list');
 }
 
 // ---------- session ----------
@@ -119,12 +116,39 @@ function makeWriter(c, outline) {
   writer = HanziWriter.create(el, c, {
     width: size, height: size, padding: Math.round(size * 0.06),
     showCharacter: false, showOutline: outline,
-    strokeColor: css('--ink'), outlineColor: css('--line'), radicalColor: null,
-    highlightColor: css('--amber'), drawingColor: css('--ink'),
+    strokeColor: css('--ink'), outlineColor: css('--trace'), radicalColor: null,
+    highlightColor: css('--red'), drawingColor: css('--ink'),
     drawingWidth: Math.max(14, size / 28), strokeAnimationSpeed: 1.2, delayBetweenStrokes: 180,
     showHintAfterMisses: 3, highlightOnComplete: true,
     charDataLoader: (ch, onLoad, onErr) => STROKES[ch] ? onLoad(STROKES[ch]) : onErr(new Error('no data ' + ch)),
   });
+}
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+function renderOrder(c, visible) {
+  const box = $('#order'); box.innerHTML = ''; box.hidden = !visible;
+  if (!visible) return;
+  const strokes = STROKES[c].strokes;
+  strokes.forEach((_, k) => {
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('viewBox', '-70 -70 1164 1164');
+    const g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('transform', 'translate(0,900) scale(1,-1)');
+    for (let i = 0; i <= k; i++) {
+      const p = document.createElementNS(SVGNS, 'path');
+      p.setAttribute('d', strokes[i]); if (i === k) p.setAttribute('class', 'last');
+      g.append(p);
+    }
+    svg.append(g); box.append(svg);
+  });
+  markOrder(0);
+}
+function markOrder(i) { $$('#order svg').forEach((s, k) => s.classList.toggle('now', k === i)); }
+
+function stamp(ch) {
+  const el = $('#stamp');
+  el.classList.remove('on'); el.textContent = ch; el.classList.toggle('small', ch.length > 1);
+  void el.offsetWidth; if (ch) el.classList.add('on');
 }
 
 function startQuiz() {
@@ -133,7 +157,7 @@ function startQuiz() {
     showHintAfterMisses: isTrace ? 1 : 3,
     leniency: isTrace ? 1.3 : 1,
     onMistake: () => { cur.mistakes++; fb(isTrace ? 'Segui il tratto evidenziato' : `Tratto sbagliato (${cur.mistakes})`, 'bad'); },
-    onCorrectStroke: (d) => fb(d.strokesRemaining ? `${d.strokesRemaining} tratti mancanti` : '', ''),
+    onCorrectStroke: (d) => { markOrder(d.strokeNum + 1); fb(d.strokesRemaining ? `Mancano ${d.strokesRemaining} tratti` : '', ''); },
     onComplete: () => complete(),
   });
 }
@@ -141,7 +165,7 @@ function startQuiz() {
 function renderItem() {
   const x = BYCHAR[cur.c];
   const isTrace = cur.stage === 'trace';
-  $('#stage').textContent = isTrace ? 'Nuovo · ricalca' : cur.retry ? 'Nuovo tentativo' : (srs[cur.c] && queue.every(q => q.stage === 'recall') ? 'Ripasso · scrivi a memoria' : 'Scrivi a memoria');
+  $('#stage').textContent = isTrace ? 'Carattere nuovo: guarda e ricalca' : cur.retry ? 'Secondo tentativo, a memoria' : (srs[cur.c] && queue.every(q => q.stage === 'recall') ? 'Ripasso: scrivilo a memoria' : 'Ora scrivilo a memoria');
   $('#pinyin').textContent = x.p;
   $('#meaning').textContent = x.m;
   $('#exZh').textContent = isTrace ? x.ez : x.ez.split(x.c).join('〇');
@@ -150,7 +174,9 @@ function renderItem() {
   $('#btnNext').hidden = true;
   $('#btnReveal').hidden = isTrace;
   $('#btnReveal').textContent = 'Aiuto';
-  fb(isTrace ? 'Guarda l’ordine dei tratti, poi ricalca' : 'Scrivi il carattere', '');
+  fb(isTrace ? 'Ricalca seguendo l’ordine dei tratti' : 'Scrivi il carattere nella griglia', '');
+  stamp('');
+  renderOrder(cur.c, isTrace || cur.revealed);
   makeWriter(cur.c, isTrace || cur.revealed);
   if (isTrace) writer.animateCharacter({ onComplete: () => { writer.hideCharacter({ duration: 200 }); startQuiz(); } });
   else startQuiz();
@@ -163,17 +189,21 @@ function complete() {
   const x = BYCHAR[cur.c];
   $('#exZh').textContent = x.ez;
   if (cur.stage === 'trace') {
-    fb('Bene! Lo riscriverai a memoria tra poco', 'ok');
+    stamp('好'); fb('Fra poco lo riscrivi a memoria', 'ok');
   } else if (cur.retry) {
     // secondo tentativo nella stessa sessione: solo pratica, il ripasso resta fissato a domani
-    fb(cur.mistakes === 0 && !cur.revealed ? 'Ora va meglio ✓ Lo rivedrai domani' : 'Lo rivedrai domani nel Ripasso', 'ok');
+    const ok = cur.mistakes === 0 && !cur.revealed; stamp(ok ? '好' : '再写');
+    fb(ok ? 'Meglio. Torna comunque domani nel ripasso' : 'Torna domani nel ripasso', 'ok');
   } else {
     const q = grade(cur.c, cur.mistakes, cur.revealed);
     results[q]++;
-    const msg = { good: 'Perfetto ✓', ok: `Giusto, con ${cur.mistakes} errori`, fail: 'Da rivedere: lo riprovi a fine sessione' }[q];
+    stamp({ good: '优', ok: '良', fail: '再写' }[q]);
+    const msg = { good: 'Perfetto, senza errori', ok: cur.mistakes === 1 ? 'Giusto, con un errore' : `Giusto, con ${cur.mistakes} errori`, fail: 'Da riscrivere: lo riprovi a fine sessione' }[q];
     fb(msg, q === 'fail' ? 'bad' : 'ok');
     if (q === 'fail') { queue.push({ c: cur.c, stage: 'recall', retry: true }); total++; }
   }
+  if ($('#order').hidden) renderOrder(cur.c, true);
+  markOrder(-1);
   $('#btnReveal').hidden = true;
   $('#btnNext').hidden = false;
 }
@@ -181,10 +211,11 @@ function complete() {
 function finish() {
   renderHome();
   const n = results.good + results.ok + results.fail;
-  $('#doneTitle').textContent = n ? 'Sessione finita' : 'Fatto';
+  $('#doneTitle').textContent = n ? 'Sessione finita' : 'Sessione interrotta';
+  $('#doneStamp').textContent = !n ? '停' : results.fail === 0 && results.ok === 0 ? '优' : results.fail === 0 ? '良' : '好';
   $('#doneText').textContent = n
-    ? `${results.good} perfetti · ${results.ok} con errori · ${results.fail} da rivedere`
-    : 'Nessun carattere da valutare.';
+    ? [results.good + (results.good === 1 ? ' perfetto' : ' perfetti'), results.ok + ' con qualche errore', results.fail + ' da riscrivere domani'].join(', ') + '.'
+    : 'Non hai completato nessun carattere a memoria.';
   show('done');
 }
 
@@ -223,14 +254,13 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 
 // ---------- wiring ----------
 $('#btnReview').onclick = () => { const d = dueList(); if (d.length) startSession(d.slice(0, REVIEW_CAP), 'review'); };
-$$('[data-learn]').forEach(b => b.onclick = () => {
-  const lv = +b.dataset.learn;
-  const fresh = CHARS.filter(x => x.l === lv && !srs[x.c]).slice(0, opts.perSession).map(x => x.c);
+$$('[data-tab]').forEach(b => b.onclick = () => { tab = +b.dataset.tab; renderHome(); });
+$('#btnLearn').onclick = () => {
+  const fresh = CHARS.filter(x => x.l === tab && !srs[x.c]).slice(0, opts.perSession).map(x => x.c);
   if (fresh.length) startSession(fresh, 'learn');
-});
-$$('[data-list]').forEach(b => b.onclick = () => openList(+b.dataset.list));
+};
 $$('[data-back]').forEach(b => b.onclick = () => { renderHome(); show('home'); });
-$('#btnExit').onclick = () => { if (writer) writer.cancelQuiz(); finish(); };
+$('#btnExit').onclick = () => { if (writer) writer.cancelQuiz(); if (results.good + results.ok + results.fail) finish(); else { renderHome(); show('home'); } };
 $('#btnNext').onclick = () => nextItem();
 $('#btnAnim').onclick = () => {
   if (!writer) return;
@@ -239,9 +269,9 @@ $('#btnAnim').onclick = () => {
   writer.animateCharacter({ onComplete: () => { if (!cur.done) { writer.hideCharacter({ duration: 200 }); startQuiz(); } } });
 };
 $('#btnRestart').onclick = () => { if (!writer) return; if (cur.done) cur.graded = true; cur.done = false; writer.cancelQuiz(); writer.hideCharacter(); startQuiz(); };
-$('#btnReveal').onclick = () => { if (!writer || cur.done) return; cur.revealed = true; writer.showOutline(); fb('Aiuto usato: lo ripasserai presto', 'bad'); };
+$('#btnReveal').onclick = () => { if (!writer || cur.done) return; cur.revealed = true; writer.showOutline(); renderOrder(cur.c, true); fb('Aiuto usato: lo ripasserai presto', 'bad'); };
 $('#optPencil').onchange = e => { opts.pencil = e.target.checked; save(); };
-$('#optNew').onchange = e => { opts.perSession = +e.target.value; save(); };
+$('#optNew').onchange = e => { opts.perSession = +e.target.value; save(); renderHome(); };
 
 const dlg = $('#backup');
 $('#btnBackup').onclick = () => { $('#backupText').value = JSON.stringify(srs); dlg.showModal(); };
