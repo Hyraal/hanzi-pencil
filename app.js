@@ -141,7 +141,7 @@ function startQuiz() {
 function renderItem() {
   const x = BYCHAR[cur.c];
   const isTrace = cur.stage === 'trace';
-  $('#stage').textContent = isTrace ? 'Nuovo · ricalca' : (srs[cur.c] && queue.every(q => q.stage === 'recall') ? 'Ripasso · scrivi a memoria' : 'Scrivi a memoria');
+  $('#stage').textContent = isTrace ? 'Nuovo · ricalca' : cur.retry ? 'Nuovo tentativo' : (srs[cur.c] && queue.every(q => q.stage === 'recall') ? 'Ripasso · scrivi a memoria' : 'Scrivi a memoria');
   $('#pinyin').textContent = x.p;
   $('#meaning').textContent = x.m;
   $('#exZh').textContent = isTrace ? x.ez : x.ez.split(x.c).join('〇');
@@ -164,14 +164,15 @@ function complete() {
   $('#exZh').textContent = x.ez;
   if (cur.stage === 'trace') {
     fb('Bene! Lo riscriverai a memoria tra poco', 'ok');
+  } else if (cur.retry) {
+    // secondo tentativo nella stessa sessione: solo pratica, il ripasso resta fissato a domani
+    fb(cur.mistakes === 0 && !cur.revealed ? 'Ora va meglio ✓ Lo rivedrai domani' : 'Lo rivedrai domani nel Ripasso', 'ok');
   } else {
     const q = grade(cur.c, cur.mistakes, cur.revealed);
     results[q]++;
-    const msg = { good: 'Perfetto ✓', ok: `Giusto, con ${cur.mistakes} errori`, fail: 'Da rivedere: torna più avanti' }[q];
+    const msg = { good: 'Perfetto ✓', ok: `Giusto, con ${cur.mistakes} errori`, fail: 'Da rivedere: lo riprovi a fine sessione' }[q];
     fb(msg, q === 'fail' ? 'bad' : 'ok');
-    if (q === 'fail' && !queue.slice(qIndex).some(i => i.c === cur.c)) {
-      queue.push({ c: cur.c, stage: 'recall', retry: true }); total++;
-    }
+    if (q === 'fail') { queue.push({ c: cur.c, stage: 'recall', retry: true }); total++; }
   }
   $('#btnReveal').hidden = true;
   $('#btnNext').hidden = false;
