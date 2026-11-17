@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Hanzi Pencil</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Hanzi">
+<meta name="theme-color" content="#f4efe4">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME -->
+  <section id="home" class="screen active">
+    <header class="top">
+      <div class="seal">字</div>
+      <div>
+        <h1>Hanzi Pencil</h1>
+        <p class="sub">Scrittura HSK 1–2 · 600 caratteri</p>
+      </div>
+    </header>
+
+    <div class="today">
+      <div class="today-num"><span id="dueCount">0</span><small>da ripassare</small></div>
+      <button class="btn primary big" id="btnReview">Ripasso</button>
+    </div>
+
+    <div class="levels">
+      <article class="level" data-level="1">
+        <div class="level-head"><h2>HSK 1</h2><span class="pct" data-pct="1">0%</span></div>
+        <div class="bar"><i data-bar="1"></i></div>
+        <p class="meta" data-meta="1"></p>
+        <div class="row">
+          <button class="btn primary" data-learn="1">Impara nuovi</button>
+          <button class="btn ghost" data-list="1">Tutti i caratteri</button>
+        </div>
+      </article>
+      <article class="level" data-level="2">
+        <div class="level-head"><h2>HSK 2</h2><span class="pct" data-pct="2">0%</span></div>
+        <div class="bar"><i data-bar="2"></i></div>
+        <p class="meta" data-meta="2"></p>
+        <div class="row">
+          <button class="btn primary" data-learn="2">Impara nuovi</button>
+          <button class="btn ghost" data-list="2">Tutti i caratteri</button>
+        </div>
+      </article>
+    </div>
+
+    <section class="hard" id="hardBox" hidden>
+      <h3>Dove sbagli di più</h3>
+      <div class="hard-list" id="hardList"></div>
+    </section>
+
+    <footer class="settings">
+      <label class="switch"><input type="checkbox" id="optPencil" checked><span>Solo Apple Pencil</span></label>
+      <label class="num">Nuovi per sessione
+        <select id="optNew"><option>5</option><option selected>8</option><option>10</option><option>15</option></select>
+      </label>
+      <button class="link" id="btnBackup">Backup progressi</button>
+    </footer>
+  </section>
+
+  <!-- LIST -->
+  <section id="list" class="screen">
+    <header class="bar-top">
+      <button class="btn ghost" data-back>‹ Home</button>
+      <h2 id="listTitle">HSK 1</h2>
+      <span></span>
+    </header>
+    <div class="legend"><span class="dot s0"></span>nuovo <span class="dot s1"></span>in studio <span class="dot s2"></span>imparato</div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- PRACTICE -->
+  <section id="practice" class="screen">
+    <header class="bar-top">
+      <button class="btn ghost" id="btnExit">‹ Esci</button>
+      <div class="progress"><i id="sessBar"></i></div>
+      <span class="count" id="sessCount"></span>
+    </header>
+    <div class="practice-body">
+      <div class="board-wrap">
+        <div class="board" id="board">
+          <svg class="tian" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="0" y1="50" x2="100" y2="50"/><line x1="50" y1="0" x2="50" y2="100"/>
+            <line x1="0" y1="0" x2="100" y2="100"/><line x1="100" y1="0" x2="0" y2="100"/>
+          </svg>
+          <div id="writer"></div>
+        </div>
+        <div class="tools">
+          <button class="btn ghost" id="btnAnim">▶︎ Ordine tratti</button>
+          <button class="btn ghost" id="btnRestart">↺ Ricomincia</button>
+          <button class="btn ghost" id="btnReveal">Mostra</button>
+        </div>
+      </div>
+      <aside class="info">
+        <p class="stage" id="stage"></p>
+        <p class="pinyin" id="pinyin"></p>
+        <p class="meaning" id="meaning"></p>
+        <div class="example" id="example">
+          <p class="ex-zh" id="exZh"></p>
+          <p class="ex-py" id="exPy"></p>
+          <p class="ex-it" id="exIt"></p>
+        </div>
+        <p class="feedback" id="feedback"></p>
+        <button class="btn primary big" id="btnNext" hidden>Avanti</button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- DONE -->
+  <section id="done" class="screen">
+    <div class="done-box">
+      <div class="seal big">好</div>
+      <h2 id="doneTitle">Sessione finita</h2>
+      <p id="doneText"></p>
+      <button class="btn primary big" data-back>Torna alla home</button>
+    </div>
+  </section>
+
+  <!-- BACKUP -->
+  <dialog id="backup">
+    <h3>Backup progressi</h3>
+    <p class="small">I progressi sono salvati solo su questo iPad. Copia il testo per conservarlo, oppure incolla un backup e premi Ripristina.</p>
+    <textarea id="backupText" rows="6"></textarea>
+    <div class="row">
+      <button class="btn ghost" id="btnCopy">Copia</button>
+      <button class="btn ghost" id="btnRestore">Ripristina</button>
+      <button class="btn primary" id="btnClose">Chiudi</button>
+    </div>
+  </dialog>
+</div>
+
+<script src="lib/hanzi-writer.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
