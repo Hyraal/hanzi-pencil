@@ -10,7 +10,7 @@ const REVIEW_CAP = 40;
 
 let CHARS = [], BYCHAR = {}, STROKES = {};
 let srs = {};                // { char: {b, d, n, e} }
-let opts = { pencil: true, perSession: 8 };
+let opts = { pencil: null, sawStylus: false, perSession: 8 }; // pencil null = automatico
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -75,7 +75,9 @@ function renderHome() {
     frag.append(b);
   }
   sheet.append(frag);
-  $('#optPencil').checked = opts.pencil;
+  $('#optPencil').checked = stylusOnly();
+  // su un telefono senza Pencil l'opzione non serve
+  $('#optPencil').closest('label').hidden = !opts.sawStylus && opts.pencil === null && matchMedia('(max-width: 700px)').matches;
   $('#optNew').value = String(opts.perSession);
 }
 
@@ -227,8 +229,11 @@ function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.fl
 // Intercetto i touch in fase di capture e inoltro solo il tocco scelto come eventi mouse.
 let activeTouch = null;
 function svgNode() { return $('#writer svg'); }
+const stylusOnly = () => opts.pencil === null ? opts.sawStylus : opts.pencil;
 function pickTouch(list) {
-  for (const t of list) if (!opts.pencil || t.touchType === 'stylus') return t;
+  if (!opts.sawStylus && [...list].some(t => t.touchType === 'stylus')) { opts.sawStylus = true; save(); $('#optPencil').checked = stylusOnly(); }
+  const only = stylusOnly();
+  for (const t of list) if (!only || t.touchType === 'stylus') return t;
   return null;
 }
 function fire(type, t, target) {

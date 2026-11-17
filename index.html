@@ -55,7 +55,7 @@
     </div>
 
     <footer class="settings">
-      <label class="check"><input type="checkbox" id="optPencil" checked> Scrivi solo con la Apple Pencil</label>
+      <label class="check"><input type="checkbox" id="optPencil"> Ignora il dito, scrivi solo con la Apple Pencil</label>
       <label>Caratteri nuovi per sessione
         <select id="optNew"><option>5</option><option selected>8</option><option>10</option><option>15</option></select>
       </label>
@@ -90,9 +90,11 @@
       </div>
 
       <aside class="margin">
-        <p class="stage" id="stage"></p>
-        <p class="pinyin" id="pinyin"></p>
-        <p class="meaning" id="meaning"></p>
+        <div class="word">
+          <p class="stage" id="stage"></p>
+          <p class="pinyin" id="pinyin"></p>
+          <p class="meaning" id="meaning"></p>
+        </div>
         <div class="example">
           <p class="ex-zh" id="exZh"></p>
           <p class="ex-py" id="exPy"></p>

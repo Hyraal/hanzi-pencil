@@ -41,18 +41,18 @@ button{font:inherit;color:inherit}
 
 /* ---------- copertina ---------- */
 .cover{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;
-  padding:28px 32px 22px;background:var(--rule);color:var(--paper-hi);border-radius:6px 6px 0 0}
+  padding:28px 32px 22px;background:var(--rule);color:#eef5e8;border-radius:6px 6px 0 0}
 .cover h1{font-weight:900;font-size:44px;letter-spacing:.18em;line-height:1}
 .cover-title p{margin-top:8px;opacity:.85;font-size:15px}
 .cover-fields{display:flex;gap:28px;margin:0}
 .cover-fields div{display:flex;align-items:baseline;gap:10px}
 .cover-fields dt{font-size:15px;opacity:.85}
-.cover-fields dd{margin:0;min-width:96px;padding:0 6px 2px;border-bottom:1.5px solid var(--paper-hi);
-  font-size:30px;line-height:1.1;color:var(--paper-hi)}
+.cover-fields dd{margin:0;min-width:96px;padding:0 6px 2px;border-bottom:1.5px solid #eef5e8;
+  font-size:30px;line-height:1.1;color:#eef5e8}
 
 /* ---------- linguette ---------- */
 .tabs{display:flex;gap:4px;background:var(--rule);padding:0 24px}
-.tabs button{border:0;background:transparent;color:var(--paper-hi);opacity:.75;padding:10px 22px 12px;
+.tabs button{border:0;background:transparent;color:#eef5e8;opacity:.75;padding:10px 22px 12px;
   font-weight:600;cursor:pointer;border-radius:6px 6px 0 0}
 .tabs button[aria-selected="true"]{background:var(--paper);color:var(--print);opacity:1}
 
@@ -149,3 +149,40 @@ dialog h3{font-weight:600;margin-bottom:8px}
 dialog textarea{width:100%;font:12px/1.4 ui-monospace,monospace;border:1.5px solid var(--rule-soft);border-radius:4px;padding:10px;
   background:var(--paper-hi);color:var(--print);margin:10px 0 14px;-webkit-user-select:text;user-select:text}
 .small{font-size:15px;color:var(--print-soft)}
+
+/* ---------- smartphone ---------- */
+@media (max-width: 700px){
+  .screen{padding:12px}
+  body{font-size:16px}
+  .cover{padding:18px 18px 14px;gap:14px}
+  .cover h1{font-size:30px;letter-spacing:.1em}
+  .cover-title p{font-size:13px;margin-top:6px}
+  .cover-fields{gap:18px}
+  .cover-fields dd{font-size:22px;min-width:58px}
+  .tabs{padding:0 10px}
+  .tabs button{padding:9px 18px 10px}
+  .page{padding:16px 12px 18px}
+  .page-head{flex-direction:column;align-items:stretch;gap:14px;margin-bottom:14px}
+  .actions .btn{flex:1;padding:10px 12px}
+  .sheet{grid-template-columns:repeat(auto-fill,minmax(48px,1fr))}
+  .cell{font-size:26px}
+  .cell.s2{font-size:31px}
+  .settings{flex-direction:column;align-items:flex-start;gap:14px}
+
+  .practice-top{margin-bottom:10px;gap:12px}
+  .practice-body{display:flex;flex-direction:column;align-items:stretch;gap:12px}
+  .margin{display:contents}
+  .word{order:0;display:grid;grid-template-columns:auto 1fr;align-items:baseline;column-gap:14px}
+  .word .stage{grid-column:1/-1;margin-bottom:2px;font-size:14px}
+  .pinyin{font-size:32px}
+  .meaning{font-size:17px;margin:0;line-height:1.3}
+  .board-col{order:1;gap:10px}
+  .board{--s:min(calc(100vw - 24px),56vh)}
+  .feedback{order:2;margin:0;text-align:center;min-height:24px}
+  #btnNext{order:3;width:100%}
+  .example{order:4;margin:0}
+  .ex-zh{font-size:20px}
+  .order svg{width:36px;height:36px}
+  .stamp{top:-8px;right:-4px;width:80px;height:80px;font-size:42px}
+  .stamp.small{font-size:30px}
+}
