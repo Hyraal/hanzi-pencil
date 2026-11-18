@@ -73,8 +73,10 @@ function renderHome() {
   const frag = document.createDocumentFragment();
   for (const x of list) {
     const b = document.createElement('button');
-    b.className = 'cell s' + status(x.c) + (hard.has(x.c) ? ' hard' : '') + (W ? ' word' : '');
-    b.textContent = x.c;
+    b.className = 'cell s' + status(x.c) + (hard.has(x.c) ? ' hard' : '') + (W ? ' wd' : '');
+    const h = document.createElement('span'), py = document.createElement('span');
+    h.className = 'h'; h.textContent = x.c; py.className = 'py'; py.textContent = x.p;
+    b.append(h, py);
     b.setAttribute('aria-label', `${x.c} ${x.p}, ${x.m}`);
     b.onclick = () => startSession([x.c], 'single');
     frag.append(b);

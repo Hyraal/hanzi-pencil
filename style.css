@@ -71,19 +71,26 @@ button{font:inherit;color:inherit}
 
 .sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));
   border-top:1.5px solid var(--rule);border-left:1.5px solid var(--rule)}
-.cell{aspect-ratio:1;position:relative;border:0;border-right:1.5px solid var(--rule);border-bottom:1.5px solid var(--rule);
+.cell{position:relative;border:0;border-right:1.5px solid var(--rule);border-bottom:1.5px solid var(--rule);background:none;
+  display:flex;flex-direction:column;align-items:stretch;
+  font:400 32px/1 var(--serif);color:var(--ghost);cursor:pointer;padding:0 0 5px}
+.cell .h{aspect-ratio:1;display:grid;place-items:center;
   background:
     repeating-linear-gradient(to right,var(--rule-soft) 0 3px,transparent 3px 6px) center/100% 1px no-repeat,
-    repeating-linear-gradient(to bottom,var(--rule-soft) 0 3px,transparent 3px 6px) center/1px 100% no-repeat;
-  font:400 32px/1 var(--serif);color:var(--ghost);cursor:pointer;padding:0}
+    repeating-linear-gradient(to bottom,var(--rule-soft) 0 3px,transparent 3px 6px) center/1px 100% no-repeat}
+.cell .py{font:400 12px/1.1 var(--serif);color:var(--print-soft);padding:0 3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.cell.s0 .py{opacity:.7}
 .cell.s1{color:var(--trace)}
 .cell.s2{font-family:var(--hand);font-size:38px;color:var(--ink)}
 .cell.hard::after{content:"";position:absolute;inset:7%;border:2px solid var(--red);border-radius:50%;
   transform:rotate(-12deg) scaleX(1.06);opacity:.85;pointer-events:none}
 .cell:active{background-color:var(--paper-hi)}
 .sheet.words{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
-.cell.word{aspect-ratio:auto;height:58px;font-size:28px;white-space:nowrap;background:none}
-.cell.word.s2{font-size:32px}
+.cell.wd{font-size:28px;white-space:nowrap}
+.cell.wd .h{aspect-ratio:auto;height:50px;background:none}
+.cell.wd .py{font-size:13px}
+.cell.wd.s2{font-size:32px}
 
 /* striscia della parola durante l'esercizio */
 .strip{display:flex;border-left:1.5px solid var(--rule)}
@@ -184,8 +191,10 @@ dialog textarea{width:100%;font:12px/1.4 ui-monospace,monospace;border:1.5px sol
   .cell{font-size:26px}
   .cell.s2{font-size:31px}
   .sheet.words{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
-  .cell.word{height:50px;font-size:23px}
-  .cell.word.s2{font-size:26px}
+  .cell.wd{font-size:23px}
+  .cell.wd .h{height:42px}
+  .cell .py{font-size:11px}
+  .cell.wd.s2{font-size:26px}
   .modes{margin-top:10px}
   .strip span{width:44px;height:44px;font-size:28px}
   .settings{flex-direction:column;align-items:flex-start;gap:14px}
