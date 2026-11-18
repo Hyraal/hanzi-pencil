@@ -50,6 +50,31 @@ const dueList = () => items().filter(x => srs[x.c] && srs[x.c].d <= endOfToday()
 let tab = 1;
 const hardSet = () => new Set(Object.entries(srs).filter(([, s]) => s.n >= 2 && s.e / s.n >= 1.5).map(([c]) => c));
 
+// ---------- ricerca: hanzi, pinyin (con o senza toni, anche zhun3) o italiano ----------
+const plain = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ü|v/g, 'u').replace(/[\s'’·0-9-]/g, '');
+const HAN = /[\u4e00-\u9fff]/;
+function search(q) {
+  q = q.trim(); if (!q) return [];
+  const han = HAN.test(q), pq = plain(q), lq = q.toLowerCase();
+  const toned = /[\u0300\u0301\u0304\u030c]/.test(q.normalize('NFD')); // solo i 4 toni, non la dieresi di ü
+  const hits = [];
+  for (const x of CHARS.concat(WORDS)) {
+    let score = 0;
+    if (han) { if (x.c === q) score = 100; else if (x.c.includes(q)) score = 60 - x.c.length; }
+    else {
+      const px = plain(x.p);
+      if (toned && !x.p.normalize('NFC').toLowerCase().replace(/\s/g, '').includes(q.normalize('NFC').toLowerCase().replace(/\s/g, ''))) score = 0;
+      else if (px === pq) score = 90; else if (pq && px.startsWith(pq)) score = 70; else if (pq.length >= 2 && px.includes(pq)) score = 40;
+      if (!score && lq.length >= 3) {
+        const words = x.m.toLowerCase().split(/[^a-zàèéìòù']+/);
+        if (words.includes(lq)) score = 50; else if (x.m.toLowerCase().includes(lq)) score = 30;
+      }
+    }
+    if (score) hits.push([score - [...x.c].length * 0.1 - (x.l - 1) * 0.05, x]);
+  }
+  return hits.sort((a, b) => b[0] - a[0]).slice(0, 120).map(h => h[1]);
+}
+
 function renderHome() {
   const due = dueList().length;
   $('#fieldDue').textContent = due;
@@ -68,15 +93,18 @@ function renderHome() {
   $('#btnLearn').disabled = left === 0;
   $('#btnLearn').textContent = left ? `Impara ${Math.min(opts.perSession, left)} nuov${f}` : 'Livello completato';
 
+  const q = $('#search').value.trim(), found = q ? search(q) : null;
+  if (found) $('#tally').innerHTML = found.length ? `<b>${found.length}</b> risultat${found.length === 1 ? 'o' : 'i'} per «${q.replace(/[<>&]/g, '')}» tra caratteri e parole, HSK 1 e 2.` : `Nessun risultato per «${q.replace(/[<>&]/g, '')}».`;
   const hard = hardSet();
-  const sheet = $('#sheet'); sheet.innerHTML = ''; sheet.classList.toggle('words', W);
+  const sheet = $('#sheet'); sheet.innerHTML = ''; sheet.classList.toggle('words', W || !!found); sheet.classList.toggle('found', !!found);
   const frag = document.createDocumentFragment();
-  for (const x of list) {
+  for (const x of found || list) {
     const b = document.createElement('button');
-    b.className = 'cell s' + status(x.c) + (hard.has(x.c) ? ' hard' : '') + (W ? ' wd' : '');
+    b.className = 'cell s' + status(x.c) + (hard.has(x.c) ? ' hard' : '') + (W || found ? ' wd' : '');
     const h = document.createElement('span'), py = document.createElement('span');
     h.className = 'h'; h.textContent = x.c; py.className = 'py'; py.textContent = x.p;
     b.append(h, py);
+    if (found) { const m = document.createElement('span'); m.className = 'm'; m.textContent = `HSK${x.l} · ${x.m}`; b.append(m); }
     b.setAttribute('aria-label', `${x.c} ${x.p}, ${x.m}`);
     b.onclick = () => startSession([x.c], 'single');
     frag.append(b);
@@ -321,8 +349,10 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 
 // ---------- wiring ----------
 $('#btnReview').onclick = () => { const d = dueList(); if (d.length) startSession(d.slice(0, REVIEW_CAP), 'review'); };
-$$('[data-tab]').forEach(b => b.onclick = () => { tab = +b.dataset.tab; renderHome(); });
-$$('[data-mode]').forEach(b => b.onclick = () => { opts.mode = b.dataset.mode; save(); renderHome(); });
+$$('[data-tab]').forEach(b => b.onclick = () => { tab = +b.dataset.tab; $('#search').value = ''; renderHome(); });
+let sT; $('#search').addEventListener('input', () => { clearTimeout(sT); sT = setTimeout(renderHome, 150); });
+$('#search').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { e.target.value = ''; renderHome(); } });
+$$('[data-mode]').forEach(b => b.onclick = () => { opts.mode = b.dataset.mode; save(); $('#search').value = ''; renderHome(); });
 $('#btnLearn').onclick = () => {
   const fresh = items().filter(x => x.l === tab && !srs[x.c]).slice(0, opts.perSession).map(x => x.c);
   if (fresh.length) startSession(fresh, 'learn');
