@@ -119,19 +119,45 @@ function nextItem() {
 
 const curChar = () => [...cur.c][cur.k];
 const multi = () => [...cur.c].length > 1;
-function renderStrip() {
-  const box = $('#strip'); box.hidden = !multi(); if (box.hidden) return;
-  const trace = cur.stage === 'trace' || cur.revealed;
-  box.innerHTML = [...cur.c].map((ch, i) =>
-    i < cur.k || cur.done ? `<span>${ch}</span>` :
-    `<span class="${i === cur.k ? 'now ' : ''}${trace ? 'todo' : ''}">${trace ? ch : ''}</span>`).join('');
+
+// una griglia 米字格 per ogni carattere della parola, affiancate sulla stessa pagina
+const MI = '<svg class="mi" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="50" x2="100" y2="50"/><line x1="50" y1="0" x2="50" y2="100"/><line x1="0" y1="0" x2="100" y2="100"/><line x1="100" y1="0" x2="0" y2="100"/></svg>';
+let boards = [];
+function boardSize(n) {
+  const phone = matchMedia('(max-width: 700px)').matches;
+  const stacked = matchMedia('(orientation: portrait), (max-width: 820px)').matches;
+  const bodyW = $('.practice-body').clientWidth;
+  const max = phone ? Math.min(innerWidth - 24, innerHeight * 0.56)
+    : stacked ? Math.min(innerWidth * 0.86, 560, innerHeight * 0.54) : Math.min(innerHeight * 0.68, 560);
+  const avail = stacked ? bodyW : bodyW - 480; // 440 margine + 40 spazio
+  return Math.floor(Math.min(max, avail / n));
+}
+function buildBoards() {
+  const box = $('#boards'), chars = [...cur.c], s = boardSize(chars.length);
+  box.querySelectorAll('.board').forEach(b => b.remove());
+  boards = chars.map(() => {
+    const b = document.createElement('div');
+    b.className = 'board'; b.style.width = b.style.height = s + 'px';
+    b.innerHTML = MI + '<div class="writer"></div>';
+    box.insertBefore(b, $('#stamp'));
+    return b;
+  });
+  $('#order').style.maxWidth = Math.max(s * chars.length, 320) + 'px';
+}
+function markBoards() { boards.forEach((b, i) => b.classList.toggle('now', boards.length > 1 && !cur.done && i === cur.k)); }
+function showWritten(i) { // carattere già scritto (serve dopo un ridimensionamento)
+  const b = boards[i], s = b.clientWidth;
+  HanziWriter.create(b.querySelector('.writer'), [...cur.c][i], {
+    width: s, height: s, padding: Math.round(s * 0.06), strokeColor: css('--ink'), radicalColor: null,
+    charDataLoader: (ch, onLoad, onErr) => STROKES[ch] ? onLoad(STROKES[ch]) : onErr(new Error('no data ' + ch)),
+  });
 }
 
 function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 
 function makeWriter(c, outline) {
-  const el = $('#writer'); el.innerHTML = ''; el.dataset.c = c;
-  const size = $('#board').clientWidth;
+  const b = boards[cur.k], el = b.querySelector('.writer'); el.innerHTML = ''; el.dataset.c = c;
+  const size = b.clientWidth;
   writer = HanziWriter.create(el, c, {
     width: size, height: size, padding: Math.round(size * 0.06),
     showCharacter: false, showOutline: outline,
@@ -183,8 +209,8 @@ function startQuiz() {
 function charDone() {
   if (cur.charDone) return; cur.charDone = true;
   if (cur.k < [...cur.c].length - 1 && !cur.done) {
-    cur.k++; renderStrip(); fb('Bene, ora il carattere successivo', 'ok');
-    setTimeout(() => { if ($('#practice').classList.contains('active') && !cur.done) renderChar(); }, 450);
+    cur.k++; markBoards(); fb('Bene, ora il carattere successivo', 'ok');
+    setTimeout(() => { if ($('#practice').classList.contains('active') && !cur.done) renderChar(); }, 250);
   } else complete();
 }
 
@@ -202,13 +228,14 @@ function renderItem() {
   $('#btnReveal').textContent = 'Aiuto';
   fb(isTrace ? 'Ricalca seguendo l’ordine dei tratti' : W ? 'Scrivi la parola, un carattere alla volta' : 'Scrivi il carattere nella griglia', '');
   stamp('');
+  buildBoards();
   renderChar();
 }
 
 function renderChar() {
   const isTrace = cur.stage === 'trace';
   cur.charDone = false;
-  renderStrip();
+  markBoards();
   renderOrder(curChar(), isTrace || cur.revealed);
   makeWriter(curChar(), isTrace || cur.revealed);
   if (isTrace) writer.animateCharacter({ onComplete: () => { writer.hideCharacter({ duration: 200 }); startQuiz(); } });
@@ -235,7 +262,7 @@ function complete() {
     fb(msg, q === 'fail' ? 'bad' : 'ok');
     if (q === 'fail') { queue.push({ c: cur.c, stage: 'recall', retry: true }); total++; }
   }
-  renderStrip();
+  markBoards();
   if ($('#order').hidden) renderOrder(curChar(), true);
   markOrder(-1);
   $('#btnReveal').hidden = true;
@@ -260,7 +287,7 @@ function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.fl
 // Hanzi Writer legge touches[0]: con il palmo appoggiato prenderebbe il punto sbagliato.
 // Intercetto i touch in fase di capture e inoltro solo il tocco scelto come eventi mouse.
 let activeTouch = null;
-function svgNode() { return $('#writer svg'); }
+function svgNode() { return boards[cur ? cur.k : 0]?.querySelector('.writer svg'); }
 const stylusOnly = () => opts.pencil === null ? opts.sawStylus : opts.pencil;
 function pickTouch(list) {
   if (!opts.sawStylus && [...list].some(t => t.touchType === 'stylus')) { opts.sawStylus = true; save(); $('#optPencil').checked = stylusOnly(); }
@@ -278,6 +305,9 @@ function onTouch(e) {
   if (e.type === 'touchstart') {
     if (activeTouch !== null) return;
     const t = pickTouch(e.changedTouches); if (!t) return;
+    // si scrive solo nella griglia attiva
+    const r = boards[cur.k].getBoundingClientRect();
+    if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) return;
     activeTouch = t.identifier; fire('mousedown', t, svg);
   } else {
     const t = [...e.changedTouches].find(t => t.identifier === activeTouch); if (!t) return;
@@ -285,8 +315,8 @@ function onTouch(e) {
     else { fire('mouseup', t, document); activeTouch = null; }
   }
 }
-const board = $('#board');
-['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(t => board.addEventListener(t, onTouch, { capture: true, passive: false }));
+const boardsEl = $('#boards');
+['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(t => boardsEl.addEventListener(t, onTouch, { capture: true, passive: false }));
 document.addEventListener('gesturestart', e => e.preventDefault());
 
 // ---------- wiring ----------
@@ -308,10 +338,10 @@ $('#btnAnim').onclick = () => {
 };
 $('#btnRestart').onclick = () => {
   if (!writer) return;
-  if (cur.done) { cur.graded = true; cur.done = false; cur.k = 0; return renderChar(); } // ripetizione libera dell'intera parola
+  if (cur.done) { cur.graded = true; cur.done = false; cur.k = 0; buildBoards(); return renderChar(); } // ripetizione libera dell'intera parola
   cur.charDone = false; writer.cancelQuiz(); writer.hideCharacter(); startQuiz();
 };
-$('#btnReveal').onclick = () => { if (!writer || cur.done) return; cur.revealed = true; writer.showOutline(); renderOrder(curChar(), true); renderStrip(); fb('Aiuto usato: lo ripasserai presto', 'bad'); };
+$('#btnReveal').onclick = () => { if (!writer || cur.done) return; cur.revealed = true; writer.showOutline(); renderOrder(curChar(), true); fb('Aiuto usato: lo ripasserai presto', 'bad'); };
 $('#optPencil').onchange = e => { opts.pencil = e.target.checked; save(); };
 $('#optNew').onchange = e => { opts.perSession = +e.target.value; save(); renderHome(); };
 
@@ -326,7 +356,7 @@ $('#btnRestore').onclick = () => {
 
 let rT; window.addEventListener('resize', () => {
   clearTimeout(rT);
-  rT = setTimeout(() => { if ($('#practice').classList.contains('active') && cur && !cur.done) renderChar(); }, 250);
+  rT = setTimeout(() => { if ($('#practice').classList.contains('active') && cur && !cur.done) { buildBoards(); for (let i = 0; i < cur.k; i++) showWritten(i); renderChar(); } }, 250);
 });
 
 // ---------- boot ----------
