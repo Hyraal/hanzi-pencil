@@ -388,7 +388,7 @@ function renderStats() {
   const start = new Date(now); start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - (WEEKS - 1) * 7);
   heat.style.gridTemplateColumns = months.style.gridTemplateColumns = `repeat(${WEEKS}, var(--hc))`;
   // quadratini grandi quanto basta a riempire la pagina (tra 16 e 34 px)
-  const ww = $('.heat-wrap').clientWidth;
+  const ww = $('.heat-wrap').clientWidth - 4; // meno il margine interno
   $('.heat-wrap').style.setProperty('--hc', Math.max(16, Math.min(34, Math.floor((ww - 4 * (WEEKS - 1)) / WEEKS))) + 'px');
   const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
   let lastMonth = -1, lastLabel = -9;
