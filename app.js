@@ -33,12 +33,17 @@ const startOfDay = (ms) => { const d = new Date(ms); d.setHours(4, 0, 0, 0); ret
 function grade(c, mistakes, revealed) {
   const s = srs[c] || { b: 0, d: 0, n: 0, e: 0 };
   s.n++; s.e += mistakes;
+  const wasLearned = s.b >= LEARNED_BOX;
   let q;
   if (revealed || mistakes > 3) { q = 'fail'; s.b = 1; }
   else if (mistakes === 0) { q = 'good'; s.b = Math.min(s.b + 1, INTERVALS.length - 1); }
   else { q = 'ok'; s.b = Math.max(s.b, 1); }
   const days = q === 'good' ? INTERVALS[s.b] : 1;
   s.d = startOfDay(Date.now() + days * DAY);
+  // ultimi 5 esiti (0 perfetto, 1 con errori, 2 da riscrivere) e ricadute su caratteri già imparati
+  s.h = [...(s.h || []), { good: 0, ok: 1, fail: 2 }[q]].slice(-5);
+  s.relapse = q === 'fail' && wasLearned;
+  if (s.relapse) s.r = (s.r || 0) + 1;
   srs[c] = s; save();
   return q;
 }
@@ -48,7 +53,12 @@ const dueList = () => items().filter(x => srs[x.c] && srs[x.c].d <= endOfToday()
 
 // ---------- home: il quaderno ----------
 let tab = 1;
-const hardSet = () => new Set(Object.entries(srs).filter(([, s]) => s.n >= 2 && s.e / s.n >= 1.5).map(([c]) => c));
+// sbagliato di recente: un "da riscrivere" o due esiti con errori negli ultimi 3 ripassi
+// (per i dati vecchi senza storico resta la regola sulla media degli errori)
+const isHard = s => s.h ? (() => { const last = s.h.slice(-3); return last.includes(2) || last.filter(v => v > 0).length >= 2; })()
+  : s.n >= 2 && s.e / s.n >= 1.5;
+const hardSet = () => new Set(Object.entries(srs).filter(([, s]) => isHard(s)).map(([c]) => c));
+const hardList = () => items().filter(x => srs[x.c] && isHard(srs[x.c])).map(x => x.c);
 
 // ---------- ricerca: hanzi, pinyin (con o senza toni, anche zhun3) o italiano ----------
 const plain = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ü|v/g, 'u').replace(/[\s'’·0-9-]/g, '');
@@ -84,6 +94,9 @@ function renderHome() {
   $$('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(+b.dataset.tab === tab)));
   $('#btnReview').disabled = due === 0;
   $('#btnReview').textContent = due ? `Ripassa ${due}` : 'Niente da ripassare';
+  const nh = hardList().length;
+  $('#btnHard').hidden = nh === 0;
+  $('#btnHard').textContent = `Sbagliati ${nh}`;
 
   const list = items().filter(x => x.l === tab);
   const seen = list.filter(x => srs[x.c]).length;
@@ -140,7 +153,7 @@ function startSession(chars, kind) {
     chars.forEach(c => queue.push({ c, stage: 'trace' }));
     shuffle([...chars]).forEach(c => queue.push({ c, stage: 'recall' }));
   }
-  total = queue.length; qIndex = 0; results = { good: 0, ok: 0, fail: 0 };
+  total = queue.length; qIndex = 0; results = { good: 0, ok: 0, fail: 0, relapses: [] };
   show('practice');
   nextItem();
 }
@@ -293,8 +306,10 @@ function complete() {
   } else {
     const q = grade(cur.c, cur.mistakes, cur.revealed);
     results[q]++;
+    if (srs[cur.c].relapse) results.relapses.push(cur.c);
     stamp({ good: '优', ok: '良', fail: '再写' }[q]);
-    const msg = { good: 'Perfetto, senza errori', ok: cur.mistakes === 1 ? 'Giusto, con un errore' : `Giusto, con ${cur.mistakes} errori`, fail: 'Da riscrivere: lo riprovi a fine sessione' }[q];
+    const msg = { good: 'Perfetto, senza errori', ok: cur.mistakes === 1 ? 'Giusto, con un errore' : `Giusto, con ${cur.mistakes} errori`,
+      fail: srs[cur.c].relapse ? 'Ricaduta: lo sapevi già. Lo riprovi a fine sessione e torna nel ripasso da domani' : 'Da riscrivere: lo riprovi a fine sessione' }[q];
     fb(msg, q === 'fail' ? 'bad' : 'ok');
     if (q === 'fail') { queue.push({ c: cur.c, stage: 'recall', retry: true }); total++; }
   }
@@ -313,6 +328,7 @@ function finish() {
   $('#doneText').textContent = n
     ? [results.good + ' perfett' + (isWords() ? (results.good === 1 ? 'a' : 'e') : (results.good === 1 ? 'o' : 'i')), results.ok + ' con qualche errore', results.fail + ' da riscrivere domani'].join(', ') + '.'
     : `Non hai completato ${isWords() ? 'nessuna parola' : 'nessun carattere'} a memoria.`;
+  if (results.relapses.length) $('#doneText').textContent += ` Ricadute (già imparati e sbagliati): ${results.relapses.join(' ')}.`;
   show('done');
 }
 
@@ -357,6 +373,7 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 
 // ---------- wiring ----------
 $('#btnReview').onclick = () => { const d = dueList(); if (d.length) startSession(d.slice(0, REVIEW_CAP), 'review'); };
+$('#btnHard').onclick = () => { const h = hardList(); if (h.length) startSession(shuffle(h).slice(0, REVIEW_CAP), 'review'); };
 $$('[data-tab]').forEach(b => b.onclick = () => { tab = +b.dataset.tab; $('#search').value = ''; renderHome(); });
 let sT; $('#search').addEventListener('input', () => { clearTimeout(sT); sT = setTimeout(renderHome, 150); });
 $('#search').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { e.target.value = ''; renderHome(); } });
