@@ -33,6 +33,7 @@
       <dl class="cover-fields">
         <div><dt>级别</dt><dd class="hand" id="fieldLevel">HSK 1</dd></div>
         <div><dt>复习</dt><dd class="hand" id="fieldDue">0</dd></div>
+        <div><dt>今天</dt><dd class="hand"><button class="fieldbtn" id="btnStats" aria-label="Tempo di oggi, apri i progressi">0′</button></dd></div>
       </dl>
     </header>
 
@@ -69,7 +70,7 @@
         <select id="optNew"><option>3</option><option>5</option><option selected>8</option><option>10</option><option>15</option></select>
       </label>
       <button class="link" id="btnBackup">Backup progressi</button>
-      <span class="ver">versione 11 · controllo sbagliati</span>
+      <span class="ver">versione 12 · progressi</span>
     </footer>
   </section>
 
@@ -110,6 +111,28 @@
   </section>
 
   <!-- FINE SESSIONE -->
+  <!-- PROGRESSI -->
+  <section id="stats" class="screen">
+    <header class="practice-top">
+      <button class="btn plain" data-back>‹ Quaderno</button>
+      <h2 class="stats-title">学习记录 · Progressi</h2>
+    </header>
+    <div class="page statspage">
+      <dl class="kpis" id="kpis"></dl>
+      <div class="heat-wrap">
+        <div class="months" id="months"></div>
+        <div class="heat" id="heat"></div>
+      </div>
+      <div class="heat-foot">
+        <p class="small" id="heatInfo">Tocca un giorno per vedere i dettagli.</p>
+        <p class="small heat-key">meno <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> più</p>
+      </div>
+      <h3 class="stats-h">Avanzamento</h3>
+      <div id="bars"></div>
+      <p class="small note">Il tempo conta solo con un esercizio aperto e l’app in primo piano, al massimo 2 minuti per carattere.</p>
+    </div>
+  </section>
+
   <section id="done" class="screen">
     <div class="done">
       <div class="done-stamp" id="doneStamp">好</div>

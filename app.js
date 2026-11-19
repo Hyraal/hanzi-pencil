@@ -7,6 +7,8 @@ const LEARNED_BOX = 3;
 const STORE_KEY = 'hanzi-srs-v1';
 const OPT_KEY = 'hanzi-opts-v1';
 const REVIEW_CAP = 40;
+const LOG_KEY = 'hanzi-log-v1';  // { 'AAAA-MM-GG': { t: secondi, n: scritture, nw: nuovi } }
+const ITEM_CAP = 120;            // al massimo 2 minuti contati per carattere/parola
 
 let CHARS = [], WORDS = [], BYCHAR = {}, STROKES = {}, CATS = [];
 let srs = {};                // { char: {b, d, n, e} }
@@ -25,6 +27,29 @@ function load(key, fallback) {
 function save() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(srs)); localStorage.setItem(OPT_KEY, JSON.stringify(opts)); } catch {}
 }
+
+// ---------- registro di studio (tempo e scritture per giorno) ----------
+let log = {};
+const dayKey = (ms = Date.now()) => { const d = new Date(ms - 4 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function logAdd(field, v = 1) {
+  const e = log[dayKey()] || (log[dayKey()] = { t: 0, n: 0, nw: 0 });
+  e[field] = (e[field] || 0) + v;
+  try { localStorage.setItem(LOG_KEY, JSON.stringify(log)); } catch {}
+}
+// il tempo scorre solo con un esercizio aperto e l'app in primo piano
+let tickAt = null, itemTime = 0;
+function tickStart() { tickAt = Date.now(); }
+function tick() {
+  if (tickAt === null) return;
+  const s = Math.min((Date.now() - tickAt) / 1000, ITEM_CAP - itemTime);
+  if (s > 0) { itemTime += s; logAdd('t', Math.round(s * 10) / 10); }
+  tickAt = Date.now();
+}
+function tickStop() { tick(); tickAt = null; }
+setInterval(tick, 15000);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) tickStop(); else if ($('#practice').classList.contains('active') && cur && !cur.done) tickStart();
+});
 
 // ---------- SRS ----------
 const endOfToday = () => { const d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime(); };
@@ -88,6 +113,7 @@ function search(q) {
 function renderHome() {
   const due = dueList().length;
   $('#fieldDue').textContent = due;
+  $('#btnStats').textContent = fmtMin((log[dayKey()] || {}).t || 0);
   $('#fieldLevel').textContent = 'HSK ' + tab;
   $$('[data-mode]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === opts.mode)));
   const W = isWords(), f = W ? 'e' : 'i';
@@ -159,11 +185,13 @@ function startSession(chars, kind) {
 }
 
 function nextItem() {
+  tickStop(); itemTime = 0;
   if (qIndex >= queue.length) return finish();
   cur = { ...queue[qIndex++], k: 0, mistakes: 0, revealed: false, done: false };
   $('#sessBar').style.width = ((qIndex - 1) / total * 100) + '%';
   $('#sessCount').textContent = `${Math.min(qIndex, total)} / ${total}`;
   renderItem();
+  tickStart();
 }
 
 const curChar = () => [...cur.c][cur.k];
@@ -293,8 +321,10 @@ function renderChar() {
 
 function complete() {
   if (cur.done) return; cur.done = true;
+  tick(); logAdd('n');
   if (cur.graded) { fb('Ripetizione libera completata', 'ok'); $('#btnNext').hidden = false; return; }
   cur.graded = true;
+  if (cur.stage === 'trace') logAdd('nw');
   const x = BYCHAR[cur.c];
   $('#exZh').textContent = x.ez;
   if (cur.stage === 'trace') {
@@ -321,6 +351,7 @@ function complete() {
 }
 
 function finish() {
+  tickStop();
   renderHome();
   const n = results.good + results.ok + results.fail;
   $('#doneTitle').textContent = n ? 'Sessione finita' : 'Sessione interrotta';
@@ -330,6 +361,67 @@ function finish() {
     : `Non hai completato ${isWords() ? 'nessuna parola' : 'nessun carattere'} a memoria.`;
   if (results.relapses.length) $('#doneText').textContent += ` Ricadute (già imparati e sbagliati): ${results.relapses.join(' ')}.`;
   show('done');
+}
+
+// ---------- progressi ----------
+const fmtMin = s => { const m = Math.round(s / 60); return m < 60 ? m + '′' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0'); };
+const fmtLong = s => { const m = Math.round(s / 60); return s > 0 && m < 1 ? 'meno di 1 min' : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
+const scr = n => `${n} ${n === 1 ? 'scrittura' : 'scritture'}`;
+const studied = e => e && (e.t >= 30 || e.n > 0);
+function renderStats() {
+  const today = log[dayKey()] || { t: 0, n: 0, nw: 0 };
+  const days = Object.values(log).filter(studied);
+  const totT = days.reduce((a, e) => a + e.t, 0), totN = days.reduce((a, e) => a + e.n, 0);
+  let streak = 0, ms = Date.now();
+  if (!studied(log[dayKey(ms)])) ms -= DAY; // oggi non ancora fatto: la serie conta fino a ieri
+  while (studied(log[dayKey(ms)])) { streak++; ms -= DAY; }
+  $('#kpis').innerHTML = [
+    ['Oggi', fmtLong(today.t), `${scr(today.n)} · ${today.nw || 0} nuovi`],
+    ['Serie', `${streak} ${streak === 1 ? 'giorno' : 'giorni'}`, 'di fila'],
+    ['Totale', fmtLong(totT), scr(totN)],
+    ['Giorni di studio', days.length, days.length ? `media ${fmtLong(totT / days.length)} al giorno` : '—'],
+  ].map(([k, v, s]) => `<div class="kpi"><dt>${k}</dt><dd>${v}</dd><small>${s}</small></div>`).join('');
+
+  // calendario: 26 settimane, colonne da lunedì
+  const WEEKS = 26, heat = $('#heat'), months = $('#months');
+  heat.innerHTML = ''; months.innerHTML = '';
+  const now = new Date(Date.now() - 4 * 3600e3); now.setHours(12, 0, 0, 0);
+  const start = new Date(now); start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - (WEEKS - 1) * 7);
+  heat.style.gridTemplateColumns = months.style.gridTemplateColumns = `repeat(${WEEKS}, var(--hc))`;
+  // quadratini grandi quanto basta a riempire la pagina (tra 16 e 34 px)
+  const ww = $('.heat-wrap').clientWidth;
+  $('.heat-wrap').style.setProperty('--hc', Math.max(16, Math.min(34, Math.floor((ww - 4 * (WEEKS - 1)) / WEEKS))) + 'px');
+  const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+  let lastMonth = -1, lastLabel = -9;
+  for (let i = 0; i < WEEKS * 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    if (i % 7 === 0) {
+      const m = document.createElement('span');
+      const col = i / 7, d7 = new Date(d); d7.setDate(d.getDate() + 6); // il mese si scrive sulla settimana in cui inizia
+      if (d7.getMonth() !== lastMonth && col - lastLabel >= 3) { m.textContent = MESI[d7.getMonth()]; lastLabel = col; }
+      lastMonth = d7.getMonth();
+      months.append(m);
+    }
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const b = document.createElement('button');
+    if (d > now) { b.className = 'future'; b.disabled = true; heat.append(b); continue; }
+    const e = log[key], min = e ? e.t / 60 : 0;
+    b.className = 'l' + (!studied(e) ? 0 : min < 5 ? 1 : min < 15 ? 2 : min < 30 ? 3 : 4) + (key === dayKey() ? ' today' : '');
+    const label = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+    b.setAttribute('aria-label', label);
+    b.onclick = () => { $('#heatInfo').textContent = studied(e) ? `${label}: ${fmtLong(e.t)}, ${scr(e.n)}, ${e.nw || 0} nuovi` : `${label}: nessuno studio`; };
+    heat.append(b);
+  }
+  const wrap = $('.heat-wrap'); wrap.scrollLeft = wrap.scrollWidth;
+
+  // avanzamento per livello
+  const bar = (title, list) => {
+    const L = list.filter(x => status(x.c) === 2).length, S = list.filter(x => status(x.c) === 1).length, T = list.length;
+    return `<div class="bar"><p><b>${title}</b> <span>${L} ${L === 1 ? 'imparato' : 'imparati'} · ${S} in studio · ${T - L - S} da fare</span></p>
+      <div class="track"><i class="b2" style="width:${L / T * 100}%"></i><i class="b1" style="width:${S / T * 100}%"></i></div></div>`;
+  };
+  $('#bars').innerHTML = bar('Caratteri HSK 1', CHARS.filter(x => x.l === 1)) + bar('Caratteri HSK 2', CHARS.filter(x => x.l === 2))
+    + bar('Parole HSK 1', WORDS.filter(x => x.l === 1)) + bar('Parole HSK 2', WORDS.filter(x => x.l === 2));
 }
 
 function fb(t, cls) { const f = $('#feedback'); f.textContent = t; f.className = 'feedback ' + (cls || ''); }
@@ -382,8 +474,9 @@ $('#btnLearn').onclick = () => {
   const fresh = items().filter(x => x.l === tab && !srs[x.c]).slice(0, opts.perSession).map(x => x.c);
   if (fresh.length) startSession(fresh, 'learn');
 };
+$('#btnStats').onclick = () => { show('stats'); renderStats(); };
 $$('[data-back]').forEach(b => b.onclick = () => { renderHome(); show('home'); });
-$('#btnExit').onclick = () => { if (writer) writer.cancelQuiz(); if (results.good + results.ok + results.fail) finish(); else { renderHome(); show('home'); } };
+$('#btnExit').onclick = () => { tickStop(); if (writer) writer.cancelQuiz(); if (results.good + results.ok + results.fail) finish(); else { renderHome(); show('home'); } };
 $('#btnNext').onclick = () => nextItem();
 $('#btnAnim').onclick = () => {
   if (!writer) return;
@@ -401,11 +494,17 @@ $('#optPencil').onchange = e => { opts.pencil = e.target.checked; save(); };
 $('#optNew').onchange = e => { opts.perSession = +e.target.value; save(); renderHome(); };
 
 const dlg = $('#backup');
-$('#btnBackup').onclick = () => { $('#backupText').value = JSON.stringify(srs); dlg.showModal(); };
+$('#btnBackup').onclick = () => { $('#backupText').value = JSON.stringify({ srs, log }); dlg.showModal(); };
 $('#btnClose').onclick = () => dlg.close();
 $('#btnCopy').onclick = async () => { try { await navigator.clipboard.writeText($('#backupText').value); $('#btnCopy').textContent = 'Copiato ✓'; } catch { $('#backupText').select(); } };
 $('#btnRestore').onclick = () => {
-  try { const d = JSON.parse($('#backupText').value); if (typeof d === 'object' && d) { srs = d; save(); renderHome(); dlg.close(); } }
+  try {
+    const d = JSON.parse($('#backupText').value);
+    if (typeof d === 'object' && d) {
+      if (d.srs) { srs = d.srs; if (d.log) { log = d.log; localStorage.setItem(LOG_KEY, JSON.stringify(log)); } } else srs = d; // anche i backup vecchi (solo srs)
+      save(); renderHome(); dlg.close();
+    }
+  }
   catch { $('#btnRestore').textContent = 'Testo non valido'; }
 };
 
@@ -416,6 +515,7 @@ let rT; window.addEventListener('resize', () => {
 
 // ---------- boot ----------
 (async () => {
+  log = load(LOG_KEY, {});
   srs = load(STORE_KEY, {}); opts = { ...opts, ...load(OPT_KEY, {}) };
   const [chars, words, strokes, cats] = await Promise.all(['chars', 'words', 'strokes', 'cats'].map(f => fetch(`data/${f}.json`).then(r => r.json())));
   CATS = cats;
