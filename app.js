@@ -157,6 +157,7 @@ function renderHome() {
     frag.append(b);
   }
   sheet.append(frag);
+  fillRows();
   $('#optPencil').checked = stylusOnly();
   // su un telefono senza Pencil l'opzione non serve
   $('#optPencil').closest('label').hidden = !opts.sawStylus && opts.pencil === null && matchMedia('(max-width: 700px)').matches;
@@ -166,6 +167,22 @@ function renderHome() {
 function show(id) {
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
   window.scrollTo(0, 0);
+  if (id === 'home') fillRows();
+}
+// completa l'ultima riga di ogni categoria con caselle vuote, così la griglia resta chiusa
+function fillRows() {
+  const sheet = $('#sheet');
+  sheet.querySelectorAll('.blank').forEach(b => b.remove());
+  const cols = getComputedStyle(sheet).gridTemplateColumns.split(' ').filter(Boolean).length;
+  if (!sheet.offsetParent || cols < 2) return; // pagina non visibile: si rifà quando torna visibile
+  const W = sheet.classList.contains('words');
+  const blank = () => { const b = document.createElement('span'); b.className = 'cell blank' + (W ? ' wd' : ''); b.innerHTML = '<span class="h"></span><span class="py">&nbsp;</span>'; return b; };
+  let run = 0;
+  const flush = before => { const miss = run % cols ? cols - run % cols : 0; for (let i = 0; i < miss; i++) sheet.insertBefore(blank(), before); run = 0; };
+  for (const el of [...sheet.children]) {
+    if (el.classList.contains('cat')) flush(el); else run++;
+  }
+  flush(null);
 }
 
 // ---------- session ----------
@@ -509,7 +526,10 @@ $('#btnRestore').onclick = () => {
 
 let rT; window.addEventListener('resize', () => {
   clearTimeout(rT);
-  rT = setTimeout(() => { if ($('#practice').classList.contains('active') && cur && !cur.done) { buildBoards(); for (let i = 0; i < cur.k; i++) showWritten(i); renderChar(); } }, 250);
+  rT = setTimeout(() => {
+    if ($('#home').classList.contains('active')) fillRows();
+    if ($('#practice').classList.contains('active') && cur && !cur.done) { buildBoards(); for (let i = 0; i < cur.k; i++) showWritten(i); renderChar(); }
+  }, 250);
 });
 
 // ---------- boot ----------
