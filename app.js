@@ -474,7 +474,7 @@ $('#btnLearn').onclick = () => {
   const fresh = items().filter(x => x.l === tab && !srs[x.c]).slice(0, opts.perSession).map(x => x.c);
   if (fresh.length) startSession(fresh, 'learn');
 };
-$('#btnStats').onclick = () => { show('stats'); renderStats(); };
+$('#btnStats').onclick = $('#btnStats2').onclick = () => { show('stats'); renderStats(); };
 $$('[data-back]').forEach(b => b.onclick = () => { renderHome(); show('home'); });
 $('#btnExit').onclick = () => { tickStop(); if (writer) writer.cancelQuiz(); if (results.good + results.ok + results.fail) finish(); else { renderHome(); show('home'); } };
 $('#btnNext').onclick = () => nextItem();
