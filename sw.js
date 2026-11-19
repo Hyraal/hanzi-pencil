@@ -1,6 +1,6 @@
-const CACHE = 'hanzi-v9';
+const CACHE = 'hanzi-v10';
 const ASSETS = ['./', 'index.html', 'style.css', 'app.js', 'lib/hanzi-writer.min.js',
-  'data/chars.json', 'data/words.json', 'data/strokes.json', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
+  'data/chars.json', 'data/words.json', 'data/cats.json', 'data/strokes.json', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 // dati e libreria: dalla cache; interfaccia (html/js/css): prima la rete, così gli aggiornamenti arrivano subito
 const STATIC = /\/(data|lib)\/|\.png$/;
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting())));

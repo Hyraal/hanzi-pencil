@@ -8,7 +8,7 @@ const STORE_KEY = 'hanzi-srs-v1';
 const OPT_KEY = 'hanzi-opts-v1';
 const REVIEW_CAP = 40;
 
-let CHARS = [], WORDS = [], BYCHAR = {}, STROKES = {};
+let CHARS = [], WORDS = [], BYCHAR = {}, STROKES = {}, CATS = [];
 let srs = {};                // { char: {b, d, n, e} }
 let opts = { pencil: null, sawStylus: false, perSession: 8, mode: 'chars' }; // pencil null = automatico
 // caratteri e parole condividono lo stesso srs: le chiavi non si sovrappongono (le parole hanno 2+ caratteri)
@@ -98,9 +98,17 @@ function renderHome() {
   const hard = hardSet();
   const sheet = $('#sheet'); sheet.innerHTML = ''; sheet.classList.toggle('words', W || !!found); sheet.classList.toggle('found', !!found);
   const frag = document.createDocumentFragment();
+  let lastK = null;
   for (const x of found || list) {
+    if (!found && x.k !== lastK) { // titolo della categoria
+      lastK = x.k;
+      const inCat = list.filter(y => y.k === x.k), h = document.createElement('h3');
+      h.className = 'cat';
+      h.innerHTML = `${(CATS.find(c => c[0] === x.k) || [, x.k])[1]} <span>${inCat.filter(y => status(y.c) === 2).length}/${inCat.length}</span>`;
+      frag.append(h);
+    }
     const b = document.createElement('button');
-    b.className = 'cell s' + status(x.c) + (hard.has(x.c) ? ' hard' : '') + (W || found ? ' wd' : '');
+    b.className = 'cell s' + status(x.c) + (hard.has(x.c) ? ' hard' : '') + (W || found ? ' wd' : '') + (x.w ? ' wr' : '');
     const h = document.createElement('span'), py = document.createElement('span');
     h.className = 'h'; h.textContent = x.c; py.className = 'py'; py.textContent = x.p;
     b.append(h, py);
@@ -392,8 +400,12 @@ let rT; window.addEventListener('resize', () => {
 // ---------- boot ----------
 (async () => {
   srs = load(STORE_KEY, {}); opts = { ...opts, ...load(OPT_KEY, {}) };
-  const [chars, words, strokes] = await Promise.all(['chars', 'words', 'strokes'].map(f => fetch(`data/${f}.json`).then(r => r.json())));
-  CHARS = chars; WORDS = words; STROKES = strokes; CHARS.concat(WORDS).forEach(x => BYCHAR[x.c] = x);
+  const [chars, words, strokes, cats] = await Promise.all(['chars', 'words', 'strokes', 'cats'].map(f => fetch(`data/${f}.json`).then(r => r.json())));
+  CATS = cats;
+  // ordine per categoria: la griglia e "Impara nuovi" procedono tema per tema
+  const ord = Object.fromEntries(cats.map((c, i) => [c[0], i]));
+  const byCat = L => L.map((x, i) => [x, i]).sort((a, b) => (ord[a[0].k] - ord[b[0].k]) || (a[1] - b[1])).map(p => p[0]);
+  CHARS = byCat(chars); WORDS = byCat(words); STROKES = strokes; CHARS.concat(WORDS).forEach(x => BYCHAR[x.c] = x);
   renderHome();
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');

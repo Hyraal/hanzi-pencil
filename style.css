@@ -93,6 +93,11 @@ button{font:inherit;color:inherit}
 .cell.hard::after{content:"";position:absolute;inset:7%;border:2px solid var(--red);border-radius:50%;
   transform:rotate(-12deg) scaleX(1.06);opacity:.85;pointer-events:none}
 .cell:active{background-color:var(--paper-hi)}
+.sheet .cat{grid-column:1/-1;margin:0;padding:16px 8px 6px;font-size:15px;font-weight:600;color:var(--print);
+  border-right:1.5px solid var(--rule);border-bottom:1.5px solid var(--rule);background:var(--paper)}
+.sheet .cat span{font-weight:400;color:var(--print-soft);font-size:13px;margin-left:6px}
+.cell.wr::before,.kw::before{content:"写";position:absolute;top:2px;left:3px;font:400 11px/1 var(--hand);color:var(--red);opacity:.85}
+.kw{color:var(--ghost)}
 .sheet.words{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
 .cell.wd{font-size:28px;white-space:nowrap}
 .cell.wd .h{aspect-ratio:auto;height:50px;background:none}
