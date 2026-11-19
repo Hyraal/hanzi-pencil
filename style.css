@@ -72,17 +72,19 @@ button{font:inherit;color:inherit}
 .months,.heat{display:grid;gap:4px;width:max-content}
 .months span{font-size:12px;color:var(--print-soft);height:16px;white-space:nowrap}
 .heat{grid-template-rows:repeat(7,var(--hc));grid-auto-flow:column}
-.heat button{width:var(--hc);height:var(--hc);padding:0;border-radius:3px;border:1px solid var(--rule-soft);cursor:pointer}
+.heat button{width:var(--hc);height:var(--hc);padding:0;border-radius:3px;border:1.5px solid var(--rule);cursor:pointer;-webkit-appearance:none;appearance:none}
+.heat button:not(.l0){border-color:transparent}
 .heat button.future{visibility:hidden}
 .heat button.today{outline:2px solid var(--red);outline-offset:1px}
+:root{--h1:#afb8ba;--h2:#7b8795;--h3:#4b5973;--h4:#1d2d52}
+@media (prefers-color-scheme: dark){:root{--h1:#4f5e60;--h2:#7b8a95;--h3:#a3b2c6;--h4:#c9d8f5}}
+/* colori fissi (niente color-mix): funzionano anche sui Safari meno recenti */
 .l0{background:var(--paper-hi)}
-.l1{background:color-mix(in srgb,var(--ink) 22%,var(--paper-hi))}
-.l2{background:color-mix(in srgb,var(--ink) 45%,var(--paper-hi))}
-.l3{background:color-mix(in srgb,var(--ink) 70%,var(--paper-hi))}
-.l4{background:var(--ink)}
+.l1{background:var(--h1)} .l2{background:var(--h2)} .l3{background:var(--h3)} .l4{background:var(--h4)}
 .heat-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:10px 0 26px}
 .heat-key{display:flex;align-items:center;gap:4px}
-.heat-key i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid var(--rule-soft)}
+.heat-key i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1.5px solid var(--rule)}
+.heat-key i:not(.l0){border-color:transparent}
 .stats-h{font-size:17px;font-weight:600;margin-bottom:12px}
 .bar{margin-bottom:14px}
 .bar p{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:15px;margin-bottom:5px}

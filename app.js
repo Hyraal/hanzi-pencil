@@ -128,12 +128,12 @@ function renderHome() {
   const seen = list.filter(x => srs[x.c]).length;
   const learned = list.filter(x => status(x.c) === 2).length;
   const left = list.length - seen;
-  $('#tally').innerHTML = `<b>${learned}</b> imparat${f}, <b>${seen - learned}</b> in studio, <b>${left}</b> ancora da imparare su ${list.length} ${W ? 'parole' : 'caratteri'}.`;
+  $('#tally').innerHTML = `<b>${learned}</b>/${list.length} imparat${f}` + (seen - learned ? ` · ${seen - learned} in studio` : '');
   $('#btnLearn').disabled = left === 0;
   $('#btnLearn').textContent = left ? `Impara ${Math.min(opts.perSession, left)} nuov${f}` : 'Livello completato';
 
   const q = $('#search').value.trim(), found = q ? search(q) : null;
-  if (found) $('#tally').innerHTML = found.length ? `<b>${found.length}</b> risultat${found.length === 1 ? 'o' : 'i'} per «${q.replace(/[<>&]/g, '')}» tra caratteri e parole, HSK 1 e 2.` : `Nessun risultato per «${q.replace(/[<>&]/g, '')}».`;
+  if (found) $('#tally').innerHTML = found.length ? `<b>${found.length}</b> risultat${found.length === 1 ? 'o' : 'i'}` : 'Nessun risultato';
   const hard = hardSet();
   const sheet = $('#sheet'); sheet.innerHTML = ''; sheet.classList.toggle('words', W || !!found); sheet.classList.toggle('found', !!found);
   const frag = document.createDocumentFragment();
@@ -278,15 +278,15 @@ function startQuiz() {
   writer.quiz({
     showHintAfterMisses: isTrace ? 1 : 3,
     leniency: isTrace ? 1.3 : 1,
-    onMistake: () => { cur.mistakes++; fb(isTrace ? 'Segui il tratto evidenziato' : `Tratto sbagliato (${cur.mistakes})`, 'bad'); },
-    onCorrectStroke: (d) => { markOrder(d.strokeNum + 1); fb(d.strokesRemaining ? `Mancano ${d.strokesRemaining} tratti` : '', ''); },
+    onMistake: () => { cur.mistakes++; fb(isTrace ? 'Segui il tratto rosso' : `Sbagliato (${cur.mistakes})`, 'bad'); },
+    onCorrectStroke: (d) => { markOrder(d.strokeNum + 1); fb('', ''); },
     onComplete: () => charDone(),
   });
 }
 function charDone() {
   if (cur.charDone) return; cur.charDone = true;
   if (cur.k < [...cur.c].length - 1 && !cur.done) {
-    cur.k++; markBoards(); fb('Bene, ora il carattere successivo', 'ok');
+    cur.k++; markBoards(); fb('', '');
     setTimeout(() => { if ($('#practice').classList.contains('active') && !cur.done) renderChar(); }, 250);
   } else complete();
 }
@@ -294,7 +294,7 @@ function charDone() {
 function renderItem() {
   const x = BYCHAR[cur.c];
   const isTrace = cur.stage === 'trace', W = multi();
-  $('#stage').textContent = isTrace ? (W ? 'Parola nuova: guarda e ricalca' : 'Carattere nuovo: guarda e ricalca') : cur.retry ? 'Secondo tentativo, a memoria' : (srs[cur.c] && queue.every(q => q.stage === 'recall') ? (W ? 'Ripasso: scrivila a memoria' : 'Ripasso: scrivilo a memoria') : (W ? 'Ora scrivila a memoria' : 'Ora scrivilo a memoria'));
+  $('#stage').textContent = isTrace ? 'Nuovo · ricalca' : cur.retry ? 'Secondo tentativo' : (srs[cur.c] && queue.every(q => q.stage === 'recall') ? 'Ripasso' : 'A memoria');
   $('#pinyin').textContent = x.p;
   $('#meaning').textContent = x.m;
   $('#exZh').textContent = isTrace ? x.ez : x.ez.split(x.c).join('〇'.repeat([...x.c].length));
@@ -303,7 +303,7 @@ function renderItem() {
   $('#btnNext').hidden = true;
   $('#btnReveal').hidden = isTrace;
   $('#btnReveal').textContent = 'Aiuto';
-  fb(isTrace ? 'Ricalca seguendo l’ordine dei tratti' : W ? 'Scrivi la parola, un carattere alla volta' : 'Scrivi il carattere nella griglia', '');
+  fb('', '');
   stamp('');
   buildBoards();
   renderChar();
@@ -322,24 +322,24 @@ function renderChar() {
 function complete() {
   if (cur.done) return; cur.done = true;
   tick(); logAdd('n');
-  if (cur.graded) { fb('Ripetizione libera completata', 'ok'); $('#btnNext').hidden = false; return; }
+  if (cur.graded) { fb('', ''); $('#btnNext').hidden = false; return; }
   cur.graded = true;
   if (cur.stage === 'trace') logAdd('nw');
   const x = BYCHAR[cur.c];
   $('#exZh').textContent = x.ez;
   if (cur.stage === 'trace') {
-    stamp('好'); fb(multi() ? 'Fra poco la riscrivi a memoria' : 'Fra poco lo riscrivi a memoria', 'ok');
+    stamp('好'); fb('', '');
   } else if (cur.retry) {
     // secondo tentativo nella stessa sessione: solo pratica, il ripasso resta fissato a domani
     const ok = cur.mistakes === 0 && !cur.revealed; stamp(ok ? '好' : '再写');
-    fb(ok ? 'Meglio. Torna comunque domani nel ripasso' : 'Torna domani nel ripasso', 'ok');
+    fb('', '');
   } else {
     const q = grade(cur.c, cur.mistakes, cur.revealed);
     results[q]++;
     if (srs[cur.c].relapse) results.relapses.push(cur.c);
     stamp({ good: '优', ok: '良', fail: '再写' }[q]);
-    const msg = { good: 'Perfetto, senza errori', ok: cur.mistakes === 1 ? 'Giusto, con un errore' : `Giusto, con ${cur.mistakes} errori`,
-      fail: srs[cur.c].relapse ? 'Ricaduta: lo sapevi già. Lo riprovi a fine sessione e torna nel ripasso da domani' : 'Da riscrivere: lo riprovi a fine sessione' }[q];
+    const msg = { good: '', ok: cur.mistakes === 1 ? '1 errore' : `${cur.mistakes} errori`,
+      fail: srs[cur.c].relapse ? 'Ricaduta' : '' }[q];
     fb(msg, q === 'fail' ? 'bad' : 'ok');
     if (q === 'fail') { queue.push({ c: cur.c, stage: 'recall', retry: true }); total++; }
   }
@@ -357,9 +357,8 @@ function finish() {
   $('#doneTitle').textContent = n ? 'Sessione finita' : 'Sessione interrotta';
   $('#doneStamp').textContent = !n ? '停' : results.fail === 0 && results.ok === 0 ? '优' : results.fail === 0 ? '良' : '好';
   $('#doneText').textContent = n
-    ? [results.good + ' perfett' + (isWords() ? (results.good === 1 ? 'a' : 'e') : (results.good === 1 ? 'o' : 'i')), results.ok + ' con qualche errore', results.fail + ' da riscrivere domani'].join(', ') + '.'
-    : `Non hai completato ${isWords() ? 'nessuna parola' : 'nessun carattere'} a memoria.`;
-  if (results.relapses.length) $('#doneText').textContent += ` Ricadute (già imparati e sbagliati): ${results.relapses.join(' ')}.`;
+    ? `优 ${results.good} · 良 ${results.ok} · 再写 ${results.fail}` : '';
+  if (results.relapses.length) $('#doneText').textContent += ` · ricadute: ${results.relapses.join(' ')}`;
   show('done');
 }
 
@@ -376,10 +375,10 @@ function renderStats() {
   if (!studied(log[dayKey(ms)])) ms -= DAY; // oggi non ancora fatto: la serie conta fino a ieri
   while (studied(log[dayKey(ms)])) { streak++; ms -= DAY; }
   $('#kpis').innerHTML = [
-    ['Oggi', fmtLong(today.t), `${scr(today.n)} · ${today.nw || 0} nuovi`],
-    ['Serie', `${streak} ${streak === 1 ? 'giorno' : 'giorni'}`, 'di fila'],
+    ['Oggi', fmtLong(today.t), scr(today.n)],
+    ['Serie', `${streak} ${streak === 1 ? 'giorno' : 'giorni'}`, ''],
     ['Totale', fmtLong(totT), scr(totN)],
-    ['Giorni di studio', days.length, days.length ? `media ${fmtLong(totT / days.length)} al giorno` : '—'],
+    ['Giorni', days.length, days.length ? `media ${fmtLong(totT / days.length)}` : ''],
   ].map(([k, v, s]) => `<div class="kpi"><dt>${k}</dt><dd>${v}</dd><small>${s}</small></div>`).join('');
 
   // calendario: 26 settimane, colonne da lunedì
@@ -417,7 +416,7 @@ function renderStats() {
   // avanzamento per livello
   const bar = (title, list) => {
     const L = list.filter(x => status(x.c) === 2).length, S = list.filter(x => status(x.c) === 1).length, T = list.length;
-    return `<div class="bar"><p><b>${title}</b> <span>${L} ${L === 1 ? 'imparato' : 'imparati'} · ${S} in studio · ${T - L - S} da fare</span></p>
+    return `<div class="bar"><p><b>${title}</b> <span>${L}/${T}</span></p>
       <div class="track"><i class="b2" style="width:${L / T * 100}%"></i><i class="b1" style="width:${S / T * 100}%"></i></div></div>`;
   };
   $('#bars').innerHTML = bar('Caratteri HSK 1', CHARS.filter(x => x.l === 1)) + bar('Caratteri HSK 2', CHARS.filter(x => x.l === 2))
@@ -489,7 +488,7 @@ $('#btnRestart').onclick = () => {
   if (cur.done) { cur.graded = true; cur.done = false; cur.k = 0; buildBoards(); return renderChar(); } // ripetizione libera dell'intera parola
   cur.charDone = false; writer.cancelQuiz(); writer.hideCharacter(); startQuiz();
 };
-$('#btnReveal').onclick = () => { if (!writer || cur.done) return; cur.revealed = true; writer.showOutline(); renderOrder(curChar(), true); fb('Aiuto usato: lo ripasserai presto', 'bad'); };
+$('#btnReveal').onclick = () => { if (!writer || cur.done) return; cur.revealed = true; writer.showOutline(); renderOrder(curChar(), true); fb('', ''); };
 $('#optPencil').onchange = e => { opts.pencil = e.target.checked; save(); };
 $('#optNew').onchange = e => { opts.perSession = +e.target.value; save(); renderHome(); };
 

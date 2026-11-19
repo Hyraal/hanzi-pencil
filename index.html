@@ -24,7 +24,7 @@
     <header class="cover">
       <div class="cover-title">
         <h1>汉字练习本</h1>
-        <p>Quaderno di scrittura HSK 3.0 · esame 2026</p>
+        <p>HSK 3.0 · 2026</p>
         <div class="modes" role="tablist">
           <button data-mode="chars" aria-selected="true"><span>字</span> Caratteri</button>
           <button data-mode="words" aria-selected="false"><span>词</span> Parole</button>
@@ -53,15 +53,14 @@
         </div>
       </div>
       <div class="search">
-        <input type="search" id="search" placeholder="Cerca: 准备, zhunbei, preparare…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+        <input type="search" id="search" placeholder="Cerca" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
       </div>
       <div class="sheet" id="sheet"></div>
       <p class="key">
         <span class="k k2">字</span> imparato
         <span class="k k1">字</span> in studio
-        <span class="k k0">字</span> da imparare
-        <span class="k kh">字</span> sbagliato di recente
-        <span class="k kw">字</span> da saper scrivere all’esame
+        <span class="k kh">字</span> sbagliato
+        <span class="k kw">字</span> da scrivere
       </p>
     </div>
 
@@ -71,7 +70,7 @@
         <select id="optNew"><option>3</option><option>5</option><option selected>8</option><option>10</option><option>15</option></select>
       </label>
       <button class="link" id="btnBackup">Backup progressi</button>
-      <span class="ver">versione 13 · pulsante Progressi</span>
+      <span class="ver">versione 15 · meno testo</span>
     </footer>
   </section>
 
@@ -125,12 +124,11 @@
         <div class="heat" id="heat"></div>
       </div>
       <div class="heat-foot">
-        <p class="small" id="heatInfo">Tocca un giorno per vedere i dettagli.</p>
+        <p class="small" id="heatInfo"></p>
         <p class="small heat-key">meno <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> più</p>
       </div>
       <h3 class="stats-h">Avanzamento</h3>
       <div id="bars"></div>
-      <p class="small note">Il tempo conta solo con un esercizio aperto e l’app in primo piano, al massimo 2 minuti per carattere.</p>
     </div>
   </section>
 
