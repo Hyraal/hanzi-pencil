@@ -199,7 +199,12 @@ button{font:inherit;color:inherit}
 
 .margin{padding-top:6px;max-width:440px;width:100%}
 .stage{color:var(--print-soft);font-size:15px;margin-bottom:10px}
+.say{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;
+  display:inline-flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;-webkit-appearance:none;appearance:none}
+.say:active{opacity:.6}
 .pinyin{font-size:46px;font-weight:600;line-height:1.1;color:var(--print)}
+.spk{width:.55em;height:.55em;flex:none;fill:var(--print-soft);stroke:var(--print-soft);stroke-width:2;stroke-linecap:round}
+.ex-zh.say .spk{width:.8em;height:.8em}
 .meaning{font-size:22px;margin:6px 0 22px}
 .example{border-top:1.5px solid var(--rule-soft);border-bottom:1.5px solid var(--rule-soft);padding:12px 0;margin-bottom:22px}
 .ex-zh{font-size:24px;line-height:1.6}

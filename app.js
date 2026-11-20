@@ -379,6 +379,25 @@ function finish() {
   show('done');
 }
 
+// ---------- pronuncia: voce cinese di sistema (funziona anche offline) ----------
+let zhVoice = null;
+const canSpeak = 'speechSynthesis' in window;
+function pickVoice() {
+  const v = speechSynthesis.getVoices();
+  const cn = v.filter(x => /^zh[-_]CN/i.test(x.lang));
+  // Tingting/Lili sono le voci mandarine standard di Apple; Eddy, Flo, Grandpa… sono voci "di personaggio"
+  zhVoice = ['Tingting', 'Lili', 'Lilian', 'Yue'].map(n => cn.find(x => x.name.startsWith(n))).find(Boolean)
+    || cn.find(x => x.localService) || cn[0] || v.find(x => /^zh/i.test(x.lang)) || null;
+}
+if (canSpeak) { pickVoice(); speechSynthesis.addEventListener('voiceschanged', pickVoice); }
+function say(text) {
+  if (!canSpeak || !text) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice; u.rate = 0.8;
+  speechSynthesis.speak(u);
+}
+
 // ---------- progressi ----------
 const fmtMin = s => { const m = Math.round(s / 60); return m < 60 ? m + '′' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0'); };
 const fmtLong = s => { const m = Math.round(s / 60); return s > 0 && m < 1 ? 'meno di 1 min' : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
@@ -490,6 +509,9 @@ $('#btnLearn').onclick = () => {
   const fresh = items().filter(x => x.l === tab && !srs[x.c]).slice(0, opts.perSession).map(x => x.c);
   if (fresh.length) startSession(fresh, 'learn');
 };
+$('#sayWord').onclick = () => cur && say(cur.c);
+$('#sayEx').onclick = () => cur && say(BYCHAR[cur.c].ez);
+if (!canSpeak) $$('.say .spk').forEach(s => s.remove());
 $('#btnStats').onclick = $('#btnStats2').onclick = () => { show('stats'); renderStats(); };
 $$('[data-back]').forEach(b => b.onclick = () => { renderHome(); show('home'); });
 $('#btnExit').onclick = () => { tickStop(); if (writer) writer.cancelQuiz(); if (results.good + results.ok + results.fail) finish(); else { renderHome(); show('home'); } };
