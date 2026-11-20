@@ -388,7 +388,7 @@ function charSvg(ch, cls) {
   const st = STROKES[ch]; if (!st) return '';
   return `<svg class="cs ${cls}" viewBox="-60 -60 1144 1144" aria-hidden="true"><g transform="translate(0,900) scale(1,-1)">${st.strokes.map(d => `<path d="${d}"/>`).join('')}</g></svg>`;
 }
-function errCols() { return Math.max(7, Math.min(12, Math.floor($('#errPage').clientWidth / 60))); }
+function errCols() { return Math.max(7, Math.min(12, Math.floor($('#errPage').clientWidth / 64))); }
 function renderErrors() {
   const page = $('#errPage'), list = CHARS.concat(WORDS).filter(x => srs[x.c] && isHard(srs[x.c]));
   $('#errCount').textContent = list.length || '';
@@ -452,6 +452,8 @@ function boxWriter(b) {
 let eAct = null;
 const fireXY = (type, x, y, target) => target.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, buttons: 1 }));
 function onErrTouch(e) {
+  // il tocco originale non deve arrivare a Hanzi Writer: riceve solo la copia mouse (altrimenti ogni tratto arriva due volte)
+  if (e.target.closest && e.target.closest('.tz')) e.stopPropagation();
   if (e.type === 'touchstart') {
     if (eAct) { e.preventDefault(); return; }               // palmo mentre si scrive
     const t = pickTouch(e.changedTouches); if (!t) return;   // dito in modalità Pencil: scorre la pagina
