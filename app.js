@@ -382,13 +382,13 @@ function finish() {
 
 // ---------- 错字本: per ogni sbagliato modello, 3 ricalchi e caselle a mano libera ----------
 const TZ = '<svg class="tzg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="50" x2="100" y2="50"/><line x1="50" y1="0" x2="50" y2="100"/></svg>';
-const TRACE_N = 3, CLEAN_NEEDED = 3;
+const TRACE_N = 3, FREE_N = 6, CLEAN_NEEDED = 3;
 const clean = {}; // { voce: [scritture pulite a mano libera per ogni carattere] }
 function charSvg(ch, cls) {
   const st = STROKES[ch]; if (!st) return '';
   return `<svg class="cs ${cls}" viewBox="-60 -60 1144 1144" aria-hidden="true"><g transform="translate(0,900) scale(1,-1)">${st.strokes.map(d => `<path d="${d}"/>`).join('')}</g></svg>`;
 }
-function errCols() { return Math.max(7, Math.min(12, Math.floor($('#errPage').clientWidth / 64))); }
+function errCols() { return Math.max(4, Math.min(8, Math.floor($('#errPage').clientWidth / 120))); } // caselle da ~120 px: piu' piccole la Pencil non e' precisa
 function renderErrors() {
   const page = $('#errPage'), list = CHARS.concat(WORDS).filter(x => srs[x.c] && isHard(srs[x.c]));
   $('#errCount').textContent = list.length || '';
@@ -408,12 +408,15 @@ function renderErrors() {
       const row = document.createElement('div'); row.className = 'tzrow'; row.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
       row.append(box('model', ch, charSvg(ch, 'm')));
       for (let k = 0; k < TRACE_N; k++) row.append(box('trace', ch, charSvg(ch, 't'), { item: x.c, i }));
-      for (let k = 1 + TRACE_N; k < cols; k++) row.append(box('free', ch, '', { item: x.c, i }));
+      const tot = Math.ceil((1 + TRACE_N + FREE_N) / cols) * cols; // righe sempre piene
+      for (let k = 1 + TRACE_N; k < tot; k++) row.append(box('free', ch, '', { item: x.c, i }));
       sec.append(row);
     });
     sec.insertAdjacentHTML('beforeend', `<p class="rpy">${x.ep} · ${x.ei}</p>`);
     const srow = document.createElement('div'); srow.className = 'tzrow'; srow.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-    for (const ch of [...x.ez]) srow.append(STROKES[ch] ? box('trace', ch, charSvg(ch, 't')) : box('txt', ch, `<span class="tt">${ch}</span>`));
+    const ez = [...x.ez];
+    for (const ch of ez) srow.append(STROKES[ch] ? box('trace', ch, charSvg(ch, 't')) : box('txt', ch, `<span class="tt">${ch}</span>`));
+    for (let k = ez.length % cols ? cols - ez.length % cols : 0; k > 0; k--) srow.append(box('txt', '', ''));
     sec.append(srow);
     page.append(sec);
   }
@@ -426,11 +429,11 @@ function boxWriter(b) {
   const w = HanziWriter.create(el, b.dataset.ch, {
     width: size, height: size, padding: Math.round(size * 0.06), showCharacter: false, showOutline: trace,
     strokeColor: css('--ink'), outlineColor: css('--trace'), radicalColor: null, highlightColor: css('--red'), drawingColor: css('--ink'),
-    drawingWidth: Math.max(4, size / 14), showHintAfterMisses: trace ? 1 : 3, highlightOnComplete: false,
+    drawingWidth: Math.max(6, size / 18), showHintAfterMisses: trace ? 1 : 3, highlightOnComplete: false,
     charDataLoader: (ch, onLoad, onErr) => STROKES[ch] ? onLoad(STROKES[ch]) : onErr(new Error('no data ' + ch)),
   });
   b.quizP = w.quiz({
-    leniency: trace ? 1.3 : 1,
+    leniency: trace ? 1.4 : 1.2,
     onMistake: () => { mistakes++; },
     onComplete: () => {
       b.dataset.done = '1'; b.classList.add(mistakes ? 'bad' : 'ok');

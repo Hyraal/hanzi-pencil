@@ -67,7 +67,7 @@ button{font:inherit;color:inherit}
 .eitem.cleared .eh::after{content:"✓";color:var(--ink);margin-left:8px}
 .eitem.cleared{opacity:.55}
 .eh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 4px;font-weight:400}
-.ehz{font-size:30px;color:var(--print)}
+.ehz{font-size:34px;color:var(--print)}
 .epy{font-size:18px;color:var(--print-soft)}
 .em{font-size:16px;color:var(--print-soft);font-style:italic}
 .rpy{font-size:13px;color:var(--print-soft);margin:6px 0 2px}
@@ -82,7 +82,7 @@ button{font:inherit;color:inherit}
 .tz .w svg{display:block}
 .tz.ok::after,.tz.bad::after{content:"";position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--ink)}
 .tz.bad::after{background:var(--red)}
-.tt{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(18px,4vw,30px);color:var(--tzt)}
+.tt{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(26px,7vw,64px);color:var(--tzt)}
 
 /* ---------- progressi ---------- */
 .stats-title{font-size:20px;font-weight:600;flex:1}
