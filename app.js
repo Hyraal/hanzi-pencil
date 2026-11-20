@@ -48,7 +48,8 @@ function tick() {
 function tickStop() { tick(); tickAt = null; }
 setInterval(tick, 15000);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) tickStop(); else if ($('#practice').classList.contains('active') && cur && !cur.done) tickStart();
+  if (document.hidden) tickStop();
+  else if (($('#practice').classList.contains('active') && cur && !cur.done) || $('#errors').classList.contains('active')) tickStart();
 });
 
 // ---------- SRS ----------
@@ -120,7 +121,7 @@ function renderHome() {
   $$('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(+b.dataset.tab === tab)));
   $('#btnReview').disabled = due === 0;
   $('#btnReview').textContent = due ? `Ripassa ${due}` : 'Niente da ripassare';
-  const nh = hardList().length;
+  const nh = CHARS.concat(WORDS).filter(x => srs[x.c] && isHard(srs[x.c])).length;
   $('#btnHard').hidden = nh === 0;
   $('#btnHard').textContent = `Sbagliati ${nh}`;
 
@@ -167,7 +168,7 @@ function renderHome() {
 function show(id) {
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
   window.scrollTo(0, 0);
-  if (id === 'home') fillRows();
+  if (id === 'home') { fillRows(); tickStop(); }
 }
 // completa l'ultima riga di ogni categoria con caselle vuote, così la griglia resta chiusa
 function fillRows() {
@@ -379,6 +380,108 @@ function finish() {
   show('done');
 }
 
+// ---------- 错字本: per ogni sbagliato modello, 3 ricalchi e caselle a mano libera ----------
+const TZ = '<svg class="tzg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="50" x2="100" y2="50"/><line x1="50" y1="0" x2="50" y2="100"/></svg>';
+const TRACE_N = 3, CLEAN_NEEDED = 3;
+const clean = {}; // { voce: [scritture pulite a mano libera per ogni carattere] }
+function charSvg(ch, cls) {
+  const st = STROKES[ch]; if (!st) return '';
+  return `<svg class="cs ${cls}" viewBox="-60 -60 1144 1144" aria-hidden="true"><g transform="translate(0,900) scale(1,-1)">${st.strokes.map(d => `<path d="${d}"/>`).join('')}</g></svg>`;
+}
+function errCols() { return Math.max(7, Math.min(12, Math.floor($('#errPage').clientWidth / 60))); }
+function renderErrors() {
+  const page = $('#errPage'), list = CHARS.concat(WORDS).filter(x => srs[x.c] && isHard(srs[x.c]));
+  $('#errCount').textContent = list.length || '';
+  page.innerHTML = '';
+  if (!list.length) { page.innerHTML = '<p class="small">Nessun errore da ripassare.</p>'; return; }
+  const cols = errCols();
+  const box = (cls, ch, inner, data = {}) => {
+    const b = document.createElement('div'); b.className = 'tz ' + cls; b.innerHTML = TZ + inner + '<div class="w"></div>';
+    Object.assign(b.dataset, { ch, ...data }); return b;
+  };
+  for (const x of list) {
+    const sec = document.createElement('section'); sec.className = 'eitem' + (clean[x.c] && clean[x.c].every(n => n >= CLEAN_NEEDED) ? ' cleared' : '');
+    sec.dataset.item = x.c;
+    sec.innerHTML = `<h3 class="eh"><span class="ehz">${x.c}</span><span class="epy">${x.p}</span><span class="em">${x.m}</span></h3>`;
+    [...x.c].forEach((ch, i) => {
+      if (x.c.length > 1 && BYCHAR[ch]) sec.insertAdjacentHTML('beforeend', `<p class="rpy">${BYCHAR[ch].p}</p>`);
+      const row = document.createElement('div'); row.className = 'tzrow'; row.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      row.append(box('model', ch, charSvg(ch, 'm')));
+      for (let k = 0; k < TRACE_N; k++) row.append(box('trace', ch, charSvg(ch, 't'), { item: x.c, i }));
+      for (let k = 1 + TRACE_N; k < cols; k++) row.append(box('free', ch, '', { item: x.c, i }));
+      sec.append(row);
+    });
+    sec.insertAdjacentHTML('beforeend', `<p class="rpy">${x.ep} · ${x.ei}</p>`);
+    const srow = document.createElement('div'); srow.className = 'tzrow'; srow.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    for (const ch of [...x.ez]) srow.append(STROKES[ch] ? box('trace', ch, charSvg(ch, 't')) : box('txt', ch, `<span class="tt">${ch}</span>`));
+    sec.append(srow);
+    page.append(sec);
+  }
+}
+// crea il quiz della casella solo quando la tocchi (molte caselle = troppe istanze da tenere aperte)
+function boxWriter(b) {
+  if (b.quizP) return b.quizP;
+  const trace = b.classList.contains('trace'), size = b.clientWidth, el = b.querySelector('.w');
+  let mistakes = 0;
+  const w = HanziWriter.create(el, b.dataset.ch, {
+    width: size, height: size, padding: Math.round(size * 0.06), showCharacter: false, showOutline: trace,
+    strokeColor: css('--ink'), outlineColor: css('--trace'), radicalColor: null, highlightColor: css('--red'), drawingColor: css('--ink'),
+    drawingWidth: Math.max(4, size / 14), showHintAfterMisses: trace ? 1 : 3, highlightOnComplete: false,
+    charDataLoader: (ch, onLoad, onErr) => STROKES[ch] ? onLoad(STROKES[ch]) : onErr(new Error('no data ' + ch)),
+  });
+  b.quizP = w.quiz({
+    leniency: trace ? 1.3 : 1,
+    onMistake: () => { mistakes++; },
+    onComplete: () => {
+      b.dataset.done = '1'; b.classList.add(mistakes ? 'bad' : 'ok');
+      tick(); itemTime = 0; logAdd('n');
+      const item = b.dataset.item;
+      if (b.classList.contains('free') && !mistakes && item) {
+        const c = clean[item] || (clean[item] = [...item].map(() => 0));
+        c[+b.dataset.i]++;
+        if (c.every(n => n >= CLEAN_NEEDED)) {
+          const s = srs[item]; s.h = [...(s.h || []), 0, 0, 0].slice(-5); save(); // non più "sbagliato di recente"
+          const sec = b.closest('.eitem'); sec.classList.add('cleared');
+          $('#errCount').textContent = CHARS.concat(WORDS).filter(x => srs[x.c] && isHard(srs[x.c])).length || '';
+        }
+      }
+    },
+  }).then(() => { if (trace) { const cs = b.querySelector('.cs'); if (cs) cs.remove(); } return el.querySelector('svg'); });
+  return b.quizP;
+}
+let eAct = null;
+const fireXY = (type, x, y, target) => target.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, buttons: 1 }));
+function onErrTouch(e) {
+  if (e.type === 'touchstart') {
+    if (eAct) { e.preventDefault(); return; }               // palmo mentre si scrive
+    const t = pickTouch(e.changedTouches); if (!t) return;   // dito in modalità Pencil: scorre la pagina
+    const b = document.elementFromPoint(t.clientX, t.clientY)?.closest('.tz.trace, .tz.free');
+    if (!b || b.dataset.done) return;                        // fuori dalle caselle: scorre
+    e.preventDefault();
+    const a = eAct = { id: t.identifier, svg: null, queue: [['mousedown', t.clientX, t.clientY]], ended: false };
+    boxWriter(b).then(svg => {
+      a.svg = svg;
+      for (const [type, x, y] of a.queue) fireXY(type, x, y, type === 'mouseup' ? document : svg);
+      if (a.ended && eAct === a) eAct = null;
+    });
+  } else {
+    if (!eAct) return;
+    const t = [...e.changedTouches].find(t => t.identifier === eAct.id); if (!t) return;
+    e.preventDefault();
+    const type = e.type === 'touchmove' ? 'mousemove' : 'mouseup';
+    if (eAct.svg) fireXY(type, t.clientX, t.clientY, type === 'mouseup' ? document : eAct.svg); else eAct.queue.push([type, t.clientX, t.clientY]);
+    if (type === 'mouseup') { if (eAct.svg) eAct = null; else eAct.ended = true; }
+  }
+}
+['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(t => $('#errPage').addEventListener(t, onErrTouch, { capture: true, passive: false }));
+// mouse (Mac): la prima pressione su una casella nuova crea il quiz e poi la inoltra
+$('#errPage').addEventListener('mousedown', e => {
+  const b = e.target.closest('.tz.trace, .tz.free');
+  if (!b || b.dataset.done || b.quizP) return;
+  e.preventDefault(); e.stopPropagation();
+  boxWriter(b).then(svg => fireXY('mousedown', e.clientX, e.clientY, svg));
+}, true);
+
 // ---------- pronuncia: voce cinese di sistema (funziona anche offline) ----------
 let zhVoice = null;
 const canSpeak = 'speechSynthesis' in window;
@@ -500,7 +603,7 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 
 // ---------- wiring ----------
 $('#btnReview').onclick = () => { const d = dueList(); if (d.length) startSession(d.slice(0, REVIEW_CAP), 'review'); };
-$('#btnHard').onclick = () => { const h = hardList(); if (h.length) startSession(shuffle(h).slice(0, REVIEW_CAP), 'review'); };
+$('#btnHard').onclick = () => { show('errors'); renderErrors(); tickStart(); };
 $$('[data-tab]').forEach(b => b.onclick = () => { tab = +b.dataset.tab; $('#search').value = ''; renderHome(); });
 let sT; $('#search').addEventListener('input', () => { clearTimeout(sT); sT = setTimeout(renderHome, 150); });
 $('#search').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { e.target.value = ''; renderHome(); } });
@@ -550,6 +653,7 @@ let rT; window.addEventListener('resize', () => {
   clearTimeout(rT);
   rT = setTimeout(() => {
     if ($('#home').classList.contains('active')) fillRows();
+    if ($('#errors').classList.contains('active')) renderErrors();
     if ($('#practice').classList.contains('active') && cur && !cur.done) { buildBoards(); for (let i = 0; i < cur.k; i++) showWritten(i); renderChar(); }
   }, 250);
 });
