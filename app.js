@@ -295,7 +295,7 @@ function startQuiz() {
   const isTrace = cur.stage === 'trace';
   writer.quiz({
     showHintAfterMisses: isTrace ? 1 : 3,
-    leniency: isTrace ? 1.3 : 1,
+    leniency: isTrace ? 1.8 : 1.5, // tolleranza su posizione e dimensione del tratto (l'ordine resta controllato)
     onMistake: () => { cur.mistakes++; fb(isTrace ? 'Segui il tratto rosso' : `Sbagliato (${cur.mistakes})`, 'bad'); },
     onCorrectStroke: (d) => { markOrder(d.strokeNum + 1); fb('', ''); },
     onComplete: () => charDone(),
@@ -412,12 +412,6 @@ function renderErrors() {
       for (let k = 1 + TRACE_N; k < tot; k++) row.append(box('free', ch, '', { item: x.c, i }));
       sec.append(row);
     });
-    sec.insertAdjacentHTML('beforeend', `<p class="rpy">${x.ep} · ${x.ei}</p>`);
-    const srow = document.createElement('div'); srow.className = 'tzrow'; srow.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-    const ez = [...x.ez];
-    for (const ch of ez) srow.append(STROKES[ch] ? box('trace', ch, charSvg(ch, 't')) : box('txt', ch, `<span class="tt">${ch}</span>`));
-    for (let k = ez.length % cols ? cols - ez.length % cols : 0; k > 0; k--) srow.append(box('txt', '', ''));
-    sec.append(srow);
     page.append(sec);
   }
 }
@@ -433,7 +427,7 @@ function boxWriter(b) {
     charDataLoader: (ch, onLoad, onErr) => STROKES[ch] ? onLoad(STROKES[ch]) : onErr(new Error('no data ' + ch)),
   });
   b.quizP = w.quiz({
-    leniency: trace ? 1.4 : 1.2,
+    leniency: trace ? 1.8 : 1.6,
     onMistake: () => { mistakes++; },
     onComplete: () => {
       b.dataset.done = '1'; b.classList.add(mistakes ? 'bad' : 'ok');
