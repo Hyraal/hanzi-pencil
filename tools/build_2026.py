@@ -3,8 +3,9 @@
 Fonti:
 - caratteri: wiki Obsidian raw/hsk30-2026-hanzi-hsk1.txt, -hsk2.txt, -scrittura-hsk1-2.txt
 - parole: raw/Sillabo_HSK_2026.pdf (pagine 80-96, via pdftotext -raw)
-- pinyin/traduzioni/frasi: data/chars.json precedente (standard 2021) e ~/Desktop/Cinese/HSK_1264_vocaboli_Anki.txt
+- pinyin/traduzioni/frasi: tools/src/chars2021.json e words2021.json (standard 2021) e ~/Desktop/Cinese/HSK_1264_vocaboli_Anki.txt
 - categorie dei caratteri: ~/Desktop/Cinese/HSK600/*_Anki.txt
+- elenco completo dell'utente: tools/src/anki_hsk12.tsv (dal PDF anki-hsk1-hsk2.pdf), aggiunto in coda
 Quello che manca nelle fonti (caratteri/parole nuovi del 2026, categorie delle parole) e' nelle tabelle qui sotto.
 Uso: python3 tools/build_2026.py   (richiede pdftotext)
 """
@@ -127,7 +128,54 @@ WORD_CATS = {
     "vsc": "没有 帮忙",
 }
 
+# elenco completo dell'utente (mazzo Anki HSK1/HSK2 "3.0", 1289 schede = esame 2026 + standard 2021):
+# tutto cio' che manca nelle liste d'esame viene aggiunto con il livello del mazzo
+ANKI_CATS = {
+    "Aggettivi e stati": "agg", "Cibo e bevande": "cibo", "Cognitivi, comunicativi ed emozioni": "vcom",
+    "Corpo e salute": "corpo", "Famiglia, persone e professioni": "fam", "Luogo, edifici e posizione": "luoghi",
+    "Natura e meteo": "natura", "Numeri, quantità e classificatori": "num", "Oggetti, materiali e tecnologia": "casa",
+    "Pronomi, particelle e grammatica": "pron", "Scuola e lingua": "scuola", "Tempo": "tempo",
+    "Verbi di azione e movimento": "vq",
+}
+EXTRA_WORDS = {  # parole dell'elenco senza dati nella lista 2021
+    "第二": ("dì-èr", "secondo", "我是第二个到的。", "Wǒ shì dì-èr gè dào de.", "Sono arrivato per secondo."),
+    "有一些": ("yǒu yìxiē", "un po', alcuni", "我有一些问题。", "Wǒ yǒu yìxiē wèntí.", "Ho alcune domande."),
+    "科学家": ("kēxuéjiā", "scienziato", "他想当科学家。", "Tā xiǎng dāng kēxuéjiā.", "Vuole diventare scienziato."),
+    "有一点儿": ("yǒu yìdiǎnr", "un po' (con senso negativo)", "今天有一点儿冷。", "Jīntiān yǒu yìdiǎnr lěng.", "Oggi fa un po' freddo."),
+    "那时": ("nàshí", "allora, a quel tempo", "那时我还很小。", "Nàshí wǒ hái hěn xiǎo.", "Allora ero ancora piccolo."),
+    "这时": ("zhèshí", "in quel momento, ora", "这时，电话响了。", "Zhèshí, diànhuà xiǎng le.", "In quel momento squillò il telefono."),
+}
+
 HAN = re.compile(r"[一-鿿]")
+
+
+def integrate_anki(chars, words, cat):
+    src = APP / "tools/src"
+    c21 = {x["c"]: x for x in json.loads((src / "chars2021.json").read_text(encoding="utf-8"))}
+    w21 = {x["c"]: x for x in json.loads((src / "words2021.json").read_text(encoding="utf-8"))}
+    have_c, have_w, lvl_c = {x["c"] for x in chars}, {x["c"] for x in words}, {}
+    for line in open(src / "anki_hsk12.tsv", encoding="utf-8"):
+        if line.startswith("#"):
+            continue
+        lv, deck, w, _, _ = line.rstrip("\n").split("\t")
+        lvl = int(lv[-1])
+        for ch in HAN.findall(w):
+            lvl_c[ch] = min(lvl_c.get(ch, 9), lvl)
+        if len(w) < 2 or w in have_w:
+            continue
+        have_w.add(w)
+        if w in EXTRA_WORDS:
+            p, m, ez, ep, ei = EXTRA_WORDS[w]
+            d = dict(p=p, m=m, ez=ez, ep=ep, ei=ei)
+        else:
+            d = w21[w]
+        assert w in d["ez"], "frase senza la parola: " + w
+        words.append(dict(c=w, p=d["p"], m=d["m"], l=lvl, k=ANKI_CATS[deck], ez=d["ez"], ep=d["ep"], ei=d["ei"]))
+    for ch, lvl in lvl_c.items():
+        if ch not in have_c:
+            x = c21[ch]
+            assert ch in x["ez"] and ch in cat, ch
+            chars.append(dict(c=ch, p=x["p"], m=x["m"], ez=x["ez"], ep=x["ep"], ei=x["ei"], l=lvl, k=cat[ch], w=0))
 
 
 def read_list(name):
@@ -148,7 +196,7 @@ def main():
     # ---- caratteri ----
     l1, l2, wr = read_list("hsk30-2026-hanzi-hsk1.txt"), read_list("hsk30-2026-hanzi-hsk2.txt"), set(read_list("hsk30-2026-scrittura-hsk1-2.txt"))
     assert (len(l1), len(l2), len(wr)) == (246, 125, 100), (len(l1), len(l2), len(wr))
-    old = {x["c"]: x for x in json.loads((APP / "data/chars.json").read_text(encoding="utf-8"))}
+    old = {x["c"]: x for x in json.loads((APP / "tools/src/chars2021.json").read_text(encoding="utf-8"))}
     cat = {}
     for f in sorted(glob.glob(str(CIN / "HSK600/*_Anki.txt"))):
         name = re.sub(r"^HSK600_|^HSK_|_parte_\d|_Anki\.txt$", "", pathlib.Path(f).name)
@@ -205,15 +253,16 @@ def main():
     extra = set(wcat) - seen
     assert not extra, "parole in categoria ma non nel sillabo: " + " ".join(sorted(extra))
 
+    integrate_anki(chars, words, cat)
     (APP / "data/chars.json").write_text(json.dumps(chars, ensure_ascii=False), encoding="utf-8")
     (APP / "data/words.json").write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
     (APP / "data/cats.json").write_text(json.dumps(CATS, ensure_ascii=False), encoding="utf-8")
     cnt = lambda L, l: sum(x["l"] == l for x in L)
     print(f"caratteri: {cnt(chars, 1)} HSK1 + {cnt(chars, 2)} HSK2, da scrivere {sum(x['w'] for x in chars)}")
     print(f"parole: {cnt(words, 1)} HSK1 + {cnt(words, 2)} HSK2")
-    needed = sorted({c for x in chars + words for c in x["c"]})
-    print("caratteri che servono per i tratti:", len(needed))
-    json.dump(needed, sys.stdout, ensure_ascii=False)
+    needed = {c for x in chars + words for c in x["c"]}
+    missing = needed - set(json.loads((APP / "data/strokes.json").read_text(encoding="utf-8")))
+    print("caratteri per i tratti:", len(needed), "| mancanti in data/strokes.json:", "".join(sorted(missing)) or "nessuno")
 
 
 if __name__ == "__main__":
