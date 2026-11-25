@@ -271,7 +271,7 @@ const MI = '<svg class="mi" viewBox="0 0 100 100" preserveAspectRatio="none" ari
 let boards = [];
 function boardSize(n) {
   if ($('#practice').classList.contains('sent')) { // frasi: caselle da 120-180 px che vanno a capo
-    const w = $('.practice-body').clientWidth, max = Math.min(n, Math.max(1, Math.floor(w / 130)));
+    const w = $('.practice-body').clientWidth, max = Math.min(n, Math.max(1, Math.floor(w / (w < 700 ? 110 : 130)))); // telefono: 3 per riga
     const cols = Math.ceil(n / Math.ceil(n / max)); // righe bilanciate: 9 = 5+4, non 8+1
     const s = Math.floor(Math.min(180, w / cols));
     $('#boards').style.maxWidth = s * cols + 2 + 'px';
@@ -700,7 +700,7 @@ $('#btnAnim').onclick = () => {
 };
 $('#btnRestart').onclick = () => {
   if (!writer) return;
-  if (cur.done) { cur.graded = true; cur.done = false; cur.k = 0; buildBoards(); return renderChar(); } // ripetizione libera dell'intera parola
+  if (cur.done) { cur.graded = true; cur.done = false; cur.k = 0; stamp(''); buildBoards(); return renderChar(); } // ripetizione libera dell'intera parola
   cur.charDone = false; writer.cancelQuiz(); writer.hideCharacter(); startQuiz();
 };
 // aiuto = sbirciata: carattere e ordine dei tratti per 2 secondi, poi si scrive a memoria

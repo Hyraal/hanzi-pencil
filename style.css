@@ -319,3 +319,11 @@ dialog textarea{width:100%;font:12px/1.4 ui-monospace,monospace;border:1.5px sol
 .done-stamp.small{font-size:44px}
 @media (max-width: 700px){.cover-fields{flex-wrap:wrap}}
 #practice.sent .board-col,#practice.sent .boards{width:100%}
+/* frasi: timbro sotto le griglie, non sopra l'ultimo carattere */
+#practice.sent .stamp{top:calc(100% + 10px);right:0;width:84px;height:84px;font-size:44px}
+#practice.sent .stamp.small{font-size:30px}
+@media (max-width: 700px){
+  #practice.sent .word{display:block;text-align:center}
+  #practice.sent .pinyin{font-size:22px}
+  #practice.sent .stamp{width:64px;height:64px;font-size:34px}
+}
