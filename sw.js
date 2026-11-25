@@ -1,4 +1,4 @@
-const CACHE = 'hanzi-v23';
+const CACHE = 'hanzi-v24';
 const ASSETS = ['./', 'index.html', 'style.css', 'app.js', 'lib/hanzi-writer.min.js',
   'data/chars.json', 'data/words.json', 'data/cats.json', 'data/strokes.json', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 // dati e libreria: dalla cache; interfaccia (html/js/css): prima la rete, così gli aggiornamenti arrivano subito

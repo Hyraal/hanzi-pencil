@@ -9,12 +9,16 @@ const OPT_KEY = 'hanzi-opts-v1';
 const REVIEW_CAP = 40;
 const LOG_KEY = 'hanzi-log-v1';  // { 'AAAA-MM-GG': { t: secondi, n: scritture, nw: nuovi } }
 const ITEM_CAP = 120;            // al massimo 2 minuti contati per carattere/parola
+const SENT_KEY = 'hanzi-sent-v1'; // { frase: ultima volta scritta (ms) }
+const SENT_SESSION = 5;
 
-let CHARS = [], WORDS = [], BYCHAR = {}, STROKES = {}, CATS = [];
+let CHARS = [], WORDS = [], SENTS = [], BYCHAR = {}, STROKES = {}, CATS = [];
+let sentLog = {};
 let srs = {};                // { char: {b, d, n, e} }
-let opts = { pencil: null, sawStylus: false, perSession: 8, mode: 'chars' }; // pencil null = automatico
+let opts = { pencil: null, sawStylus: false, perSession: 8, mode: 'chars', goalNew: 5, hidePy: false }; // pencil null = automatico
 // caratteri e parole condividono lo stesso srs: le chiavi non si sovrappongono (le parole hanno 2+ caratteri)
 const isWords = () => opts.mode === 'words';
+const isSents = () => opts.mode === 'sents';
 const items = () => isWords() ? WORDS : CHARS;
 
 const $ = s => document.querySelector(s);
@@ -25,7 +29,7 @@ function load(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
 }
 function save() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(srs)); localStorage.setItem(OPT_KEY, JSON.stringify(opts)); } catch {}
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(srs)); localStorage.setItem(OPT_KEY, JSON.stringify(opts)); localStorage.setItem(SENT_KEY, JSON.stringify(sentLog)); } catch {}
 }
 
 // ---------- registro di studio (tempo e scritture per giorno) ----------
@@ -77,6 +81,25 @@ const status = c => { const s = srs[c]; return !s ? 0 : s.b >= LEARNED_BOX ? 2 :
 const dueList = () => items().filter(x => srs[x.c] && srs[x.c].d <= endOfToday())
   .sort((a, b) => srs[a.c].d - srs[b.c].d).map(x => x.c);
 
+const dueAll = () => CHARS.concat(WORDS).filter(x => srs[x.c] && srs[x.c].d <= endOfToday()).length;
+
+// ---------- obiettivo del giorno: N nuovi + nessun ripasso in scadenza ----------
+function checkGoal() { // true se raggiunto proprio adesso
+  const e = log[dayKey()];
+  if (!e || e.g || (e.nw || 0) < opts.goalNew || dueAll()) return false;
+  e.g = 1; try { localStorage.setItem(LOG_KEY, JSON.stringify(log)); } catch {}
+  return true;
+}
+
+// ---------- frasi: solo quelle fatte di caratteri già studiati ----------
+const HANS = /[\u4e00-\u9fff]/g;
+function readySents() {
+  const known = new Set(Object.keys(srs).flatMap(k => [...k]));
+  return SENTS.filter(x => x.l === tab && [...x.c].every(ch => known.has(ch) && STROKES[ch]));
+}
+// prima le frasi mai scritte (in ordine casuale), poi quelle scritte da più tempo
+const pickSents = n => shuffle(readySents()).sort((a, b) => (sentLog[a.c] || 0) - (sentLog[b.c] || 0)).slice(0, n).map(x => x.c);
+
 // ---------- home: il quaderno ----------
 let tab = 1;
 // sbagliato di recente: un "da riscrivere" o due esiti con errori negli ultimi 3 ripassi
@@ -112,19 +135,25 @@ function search(q) {
 }
 
 function renderHome() {
-  const due = dueList().length;
-  $('#fieldDue').textContent = due;
+  const due = isSents() ? 0 : dueList().length;
+  $('#fieldDue').textContent = dueAll();
+  checkGoal();
+  const today = log[dayKey()] || {};
+  $('#fieldGoal').textContent = today.g ? '完成' : `${Math.min(today.nw || 0, opts.goalNew)}/${opts.goalNew}`;
+  $('#fieldGoal').classList.toggle('reached', !!today.g);
   $('#btnStats').textContent = fmtMin((log[dayKey()] || {}).t || 0);
   $('#fieldLevel').textContent = 'HSK ' + tab;
   $$('[data-mode]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === opts.mode)));
   const W = isWords(), f = W ? 'e' : 'i';
   $$('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(+b.dataset.tab === tab)));
+  $('#btnReview').hidden = isSents();
   $('#btnReview').disabled = due === 0;
   $('#btnReview').textContent = due ? `Ripassa ${due}` : 'Niente da ripassare';
   const nh = CHARS.concat(WORDS).filter(x => srs[x.c] && isHard(srs[x.c])).length;
   $('#btnHard').hidden = nh === 0;
   $('#btnHard').textContent = `Sbagliati ${nh}`;
 
+  if (isSents()) return renderSents();
   const list = items().filter(x => x.l === tab);
   const seen = list.filter(x => srs[x.c]).length;
   const learned = list.filter(x => status(x.c) === 2).length;
@@ -136,7 +165,7 @@ function renderHome() {
   const q = $('#search').value.trim(), found = q ? search(q) : null;
   if (found) $('#tally').innerHTML = found.length ? `<b>${found.length}</b> risultat${found.length === 1 ? 'o' : 'i'}` : 'Nessun risultato';
   const hard = hardSet();
-  const sheet = $('#sheet'); sheet.innerHTML = ''; sheet.classList.toggle('words', W || !!found); sheet.classList.toggle('found', !!found);
+  const sheet = $('#sheet'); sheet.innerHTML = ''; sheet.classList.remove('sents'); sheet.classList.toggle('words', W || !!found); sheet.classList.toggle('found', !!found);
   const frag = document.createDocumentFragment();
   let lastK = null;
   for (const x of found || list) {
@@ -163,6 +192,27 @@ function renderHome() {
   // su un telefono senza Pencil l'opzione non serve
   $('#optPencil').closest('label').hidden = !opts.sawStylus && opts.pencil === null && matchMedia('(max-width: 700px)').matches;
   $('#optNew').value = String(opts.perSession);
+  $('#optGoal').value = String(opts.goalNew);
+}
+function renderSents() {
+  const ready = readySents(), q = $('#search').value.trim().toLowerCase();
+  const shown = q ? ready.filter(x => x.z.includes(q) || x.m.toLowerCase().includes(q)) : ready;
+  $('#tally').innerHTML = `<b>${shown.length}</b> fras${shown.length === 1 ? 'e' : 'i'}`;
+  $('#btnLearn').disabled = !ready.length;
+  $('#btnLearn').textContent = ready.length ? `Scrivi ${Math.min(SENT_SESSION, ready.length)} frasi` : 'Nessuna frase pronta';
+  const sheet = $('#sheet'); sheet.innerHTML = ''; sheet.classList.remove('words', 'found'); sheet.classList.add('sents');
+  const frag = document.createDocumentFragment();
+  for (const x of shown) {
+    const b = document.createElement('button'); b.className = 'sn' + (sentLog[x.c] ? ' did' : '');
+    const h = document.createElement('span'), m = document.createElement('span');
+    h.className = 'h'; h.textContent = x.z; m.className = 'm'; m.textContent = x.m;
+    b.append(h, m); b.onclick = () => startSession([x.c], 'sent');
+    frag.append(b);
+  }
+  sheet.append(frag);
+  $('#optPencil').checked = stylusOnly();
+  $('#optNew').value = String(opts.perSession);
+  $('#optGoal').value = String(opts.goalNew);
 }
 
 function show(id) {
@@ -175,7 +225,7 @@ function fillRows() {
   const sheet = $('#sheet');
   sheet.querySelectorAll('.blank').forEach(b => b.remove());
   const cols = getComputedStyle(sheet).gridTemplateColumns.split(' ').filter(Boolean).length;
-  if (!sheet.offsetParent || cols < 2) return; // pagina non visibile: si rifà quando torna visibile
+  if (!sheet.offsetParent || cols < 2 || sheet.classList.contains('sents')) return; // pagina non visibile: si rifà quando torna visibile
   const W = sheet.classList.contains('words');
   const blank = () => { const b = document.createElement('span'); b.className = 'cell blank' + (W ? ' wd' : ''); b.innerHTML = '<span class="h"></span><span class="py">&nbsp;</span>'; return b; };
   let run = 0;
@@ -191,13 +241,14 @@ let queue = [], qIndex = 0, total = 0, writer = null, cur = null, results = {};
 
 function startSession(chars, kind) {
   queue = [];
-  if (kind === 'review') {
+  if (kind === 'review' || kind === 'sent') {
     chars.forEach(c => queue.push({ c, stage: 'recall' }));
   } else {
     chars.forEach(c => queue.push({ c, stage: 'trace' }));
     shuffle([...chars]).forEach(c => queue.push({ c, stage: 'recall' }));
   }
-  total = queue.length; qIndex = 0; results = { good: 0, ok: 0, fail: 0, relapses: [] };
+  total = queue.length; qIndex = 0; results = { good: 0, ok: 0, fail: 0, relapses: [], goal: false };
+  $('#practice').classList.toggle('sent', kind === 'sent');
   show('practice');
   nextItem();
 }
@@ -219,6 +270,14 @@ const multi = () => [...cur.c].length > 1;
 const MI = '<svg class="mi" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="50" x2="100" y2="50"/><line x1="50" y1="0" x2="50" y2="100"/><line x1="0" y1="0" x2="100" y2="100"/><line x1="100" y1="0" x2="0" y2="100"/></svg>';
 let boards = [];
 function boardSize(n) {
+  if ($('#practice').classList.contains('sent')) { // frasi: caselle da 120-180 px che vanno a capo
+    const w = $('.practice-body').clientWidth, max = Math.min(n, Math.max(1, Math.floor(w / 130)));
+    const cols = Math.ceil(n / Math.ceil(n / max)); // righe bilanciate: 9 = 5+4, non 8+1
+    const s = Math.floor(Math.min(180, w / cols));
+    $('#boards').style.maxWidth = s * cols + 2 + 'px';
+    return s;
+  }
+  $('#boards').style.maxWidth = '';
   const phone = matchMedia('(max-width: 700px)').matches;
   const stacked = matchMedia('(orientation: portrait), (max-width: 820px)').matches;
   const bodyW = $('.practice-body').clientWidth;
@@ -237,7 +296,7 @@ function buildBoards() {
     box.insertBefore(b, $('#stamp'));
     return b;
   });
-  $('#order').style.maxWidth = Math.max(s * chars.length, 320) + 'px';
+  $('#order').style.maxWidth = Math.min(Math.max(s * chars.length, 320), $('.practice-body').clientWidth) + 'px';
 }
 function markBoards() { boards.forEach((b, i) => b.classList.toggle('now', boards.length > 1 && !cur.done && i === cur.k)); }
 function showWritten(i) { // carattere già scritto (serve dopo un ridimensionamento)
@@ -312,12 +371,16 @@ function charDone() {
 function renderItem() {
   const x = BYCHAR[cur.c];
   const isTrace = cur.stage === 'trace', W = multi();
-  $('#stage').textContent = isTrace ? 'Nuovo · ricalca' : cur.retry ? 'Secondo tentativo' : (srs[cur.c] && queue.every(q => q.stage === 'recall') ? 'Ripasso' : 'A memoria');
+  $('#stage').textContent = x.s ? 'Frase' : isTrace ? 'Nuovo · ricalca' : cur.retry ? 'Secondo tentativo' : (srs[cur.c] && queue.every(q => q.stage === 'recall') ? 'Ripasso' : 'A memoria');
   $('#pinyin').textContent = x.p;
   $('#meaning').textContent = x.m;
-  $('#exZh').textContent = isTrace ? x.ez : x.ez.split(x.c).join('〇'.repeat([...x.c].length));
-  $('#exPy').textContent = x.ep;
-  $('#exIt').textContent = x.ei;
+  $('#btnPy').hidden = !x.s; $('#sayWord').classList.toggle('veiled', !!x.s && opts.hidePy);
+  $('.example').hidden = !!x.s;
+  if (!x.s) {
+    $('#exZh').textContent = isTrace ? x.ez : x.ez.split(x.c).join('〇'.repeat([...x.c].length));
+    $('#exPy').textContent = x.ep;
+    $('#exIt').textContent = x.ei;
+  }
   $('#btnNext').hidden = true;
   $('#btnReveal').hidden = isTrace;
   $('#btnReveal').textContent = 'Aiuto';
@@ -331,8 +394,9 @@ function renderChar() {
   const isTrace = cur.stage === 'trace';
   cur.charDone = false;
   markBoards();
-  renderOrder(curChar(), isTrace || cur.revealed);
-  makeWriter(curChar(), isTrace || cur.revealed);
+  cur.help = (cur.help || 0) + 1; // annulla un aiuto ancora in corso sul carattere precedente
+  renderOrder(curChar(), isTrace);
+  makeWriter(curChar(), isTrace);
   if (isTrace) writer.animateCharacter({ onComplete: () => { writer.hideCharacter({ duration: 200 }); startQuiz(); } });
   else startQuiz();
 }
@@ -344,8 +408,13 @@ function complete() {
   cur.graded = true;
   if (cur.stage === 'trace') logAdd('nw');
   const x = BYCHAR[cur.c];
-  $('#exZh').textContent = x.ez;
-  if (cur.stage === 'trace') {
+  if (!x.s) $('#exZh').textContent = x.ez;
+  if (x.s) { // frase: solo pratica, niente SRS
+    const q = cur.revealed || cur.mistakes > 3 ? 'fail' : cur.mistakes ? 'ok' : 'good';
+    results[q]++; sentLog[cur.c] = Date.now(); save();
+    stamp({ good: '优', ok: '良', fail: '再写' }[q]);
+    fb(q === 'ok' ? (cur.mistakes === 1 ? '1 errore' : `${cur.mistakes} errori`) : '', q === 'fail' ? 'bad' : 'ok');
+  } else if (cur.stage === 'trace') {
     stamp('好'); fb('', '');
   } else if (cur.retry) {
     // secondo tentativo nella stessa sessione: solo pratica, il ripasso resta fissato a domani
@@ -370,12 +439,15 @@ function complete() {
 
 function finish() {
   tickStop();
+  results.goal = checkGoal();
   renderHome();
   const n = results.good + results.ok + results.fail;
   $('#doneTitle').textContent = n ? 'Sessione finita' : 'Sessione interrotta';
   $('#doneStamp').textContent = !n ? '停' : results.fail === 0 && results.ok === 0 ? '优' : results.fail === 0 ? '良' : '好';
   $('#doneText').textContent = n
     ? `优 ${results.good} · 良 ${results.ok} · 再写 ${results.fail}` : '';
+  if (results.goal) { $('#doneStamp').textContent = '完成'; $('#doneTitle').textContent = 'Obiettivo di oggi'; }
+  $('#doneStamp').classList.toggle('small', results.goal);
   if (results.relapses.length) $('#doneText').textContent += ` · ricadute: ${results.relapses.join(' ')}`;
   show('done');
 }
@@ -543,10 +615,10 @@ function renderStats() {
     const b = document.createElement('button');
     if (d > now) { b.className = 'future'; b.disabled = true; heat.append(b); continue; }
     const e = log[key], min = e ? e.t / 60 : 0;
-    b.className = 'l' + (!studied(e) ? 0 : min < 5 ? 1 : min < 15 ? 2 : min < 30 ? 3 : 4) + (key === dayKey() ? ' today' : '');
+    b.className = 'l' + (!studied(e) ? 0 : min < 5 ? 1 : min < 15 ? 2 : min < 30 ? 3 : 4) + (key === dayKey() ? ' today' : '') + (e && e.g ? ' goal' : '');
     const label = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
     b.setAttribute('aria-label', label);
-    b.onclick = () => { $('#heatInfo').textContent = studied(e) ? `${label}: ${fmtLong(e.t)}, ${scr(e.n)}, ${e.nw || 0} nuovi` : `${label}: nessuno studio`; };
+    b.onclick = () => { $('#heatInfo').textContent = studied(e) ? `${label}: ${fmtLong(e.t)}, ${scr(e.n)}, ${e.nw || 0} nuovi${e.g ? ' · 完成' : ''}` : `${label}: nessuno studio`; };
     heat.append(b);
   }
   const wrap = $('.heat-wrap'); wrap.scrollLeft = wrap.scrollWidth;
@@ -608,10 +680,12 @@ let sT; $('#search').addEventListener('input', () => { clearTimeout(sT); sT = se
 $('#search').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { e.target.value = ''; renderHome(); } });
 $$('[data-mode]').forEach(b => b.onclick = () => { opts.mode = b.dataset.mode; save(); $('#search').value = ''; renderHome(); });
 $('#btnLearn').onclick = () => {
+  if (isSents()) { const s = pickSents(SENT_SESSION); if (s.length) startSession(s, 'sent'); return; }
   const fresh = items().filter(x => x.l === tab && !srs[x.c]).slice(0, opts.perSession).map(x => x.c);
   if (fresh.length) startSession(fresh, 'learn');
 };
-$('#sayWord').onclick = () => cur && say(cur.c);
+$('#sayWord').onclick = () => cur && say(BYCHAR[cur.c].z || cur.c);
+$('#btnPy').onclick = () => { opts.hidePy = !opts.hidePy; save(); $('#sayWord').classList.toggle('veiled', opts.hidePy); };
 $('#sayEx').onclick = () => cur && say(BYCHAR[cur.c].ez);
 if (!canSpeak) $$('.say .spk').forEach(s => s.remove());
 $('#btnStats').onclick = $('#btnStats2').onclick = () => { show('stats'); renderStats(); };
@@ -629,18 +703,27 @@ $('#btnRestart').onclick = () => {
   if (cur.done) { cur.graded = true; cur.done = false; cur.k = 0; buildBoards(); return renderChar(); } // ripetizione libera dell'intera parola
   cur.charDone = false; writer.cancelQuiz(); writer.hideCharacter(); startQuiz();
 };
-$('#btnReveal').onclick = () => { if (!writer || cur.done) return; cur.revealed = true; writer.showOutline(); renderOrder(curChar(), true); fb('', ''); };
+// aiuto = sbirciata: carattere e ordine dei tratti per 2 secondi, poi si scrive a memoria
+const HELP_MS = 2000;
+$('#btnReveal').onclick = () => {
+  if (!writer || cur.done) return;
+  cur.revealed = true; const h = ++cur.help, w = writer;
+  w.showOutline(); renderOrder(curChar(), true); fb('', '');
+  setTimeout(() => { if (cur.help === h && writer === w && !cur.charDone) { w.hideOutline(); $('#order').hidden = true; } }, HELP_MS);
+};
 $('#optPencil').onchange = e => { opts.pencil = e.target.checked; save(); };
 $('#optNew').onchange = e => { opts.perSession = +e.target.value; save(); renderHome(); };
+$('#optGoal').onchange = e => { opts.goalNew = +e.target.value; save(); renderHome(); };
 
 const dlg = $('#backup');
-$('#btnBackup').onclick = () => { $('#backupText').value = JSON.stringify({ srs, log }); dlg.showModal(); };
+$('#btnBackup').onclick = () => { $('#backupText').value = JSON.stringify({ srs, log, sent: sentLog }); dlg.showModal(); };
 $('#btnClose').onclick = () => dlg.close();
 $('#btnCopy').onclick = async () => { try { await navigator.clipboard.writeText($('#backupText').value); $('#btnCopy').textContent = 'Copiato ✓'; } catch { $('#backupText').select(); } };
 $('#btnRestore').onclick = () => {
   try {
     const d = JSON.parse($('#backupText').value);
     if (typeof d === 'object' && d) {
+      if (d.sent) sentLog = d.sent;
       if (d.srs) { srs = d.srs; if (d.log) { log = d.log; localStorage.setItem(LOG_KEY, JSON.stringify(log)); } } else srs = d; // anche i backup vecchi (solo srs)
       save(); renderHome(); dlg.close();
     }
@@ -660,13 +743,19 @@ let rT; window.addEventListener('resize', () => {
 // ---------- boot ----------
 (async () => {
   log = load(LOG_KEY, {});
-  srs = load(STORE_KEY, {}); opts = { ...opts, ...load(OPT_KEY, {}) };
+  srs = load(STORE_KEY, {}); opts = { ...opts, ...load(OPT_KEY, {}) }; sentLog = load(SENT_KEY, {});
   const [chars, words, strokes, cats] = await Promise.all(['chars', 'words', 'strokes', 'cats'].map(f => fetch(`data/${f}.json`).then(r => r.json())));
   CATS = cats;
   // ordine per categoria: la griglia e "Impara nuovi" procedono tema per tema
   const ord = Object.fromEntries(cats.map((c, i) => [c[0], i]));
   const byCat = L => L.map((x, i) => [x, i]).sort((a, b) => (ord[a[0].k] - ord[b[0].k]) || (a[1] - b[1])).map(p => p[0]);
   CHARS = byCat(chars); WORDS = byCat(words); STROKES = strokes; CHARS.concat(WORDS).forEach(x => BYCHAR[x.c] = x);
+  // frasi d'esempio come esercizio a sé: si scrivono solo i caratteri cinesi, la punteggiatura resta nel testo
+  for (const x of CHARS.concat(WORDS)) {
+    const c = (x.ez.match(HANS) || []).join('');
+    if (c.length < 2 || BYCHAR[c]) continue;
+    BYCHAR[c] = { c, z: x.ez, p: x.ep, m: x.ei, l: x.l, s: 1 }; SENTS.push(BYCHAR[c]);
+  }
   renderHome();
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');

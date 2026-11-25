@@ -295,3 +295,27 @@ dialog textarea{width:100%;font:12px/1.4 ui-monospace,monospace;border:1.5px sol
   .stamp{top:-8px;right:-4px;width:80px;height:80px;font-size:42px}
   .stamp.small{font-size:30px}
 }
+
+/* ---------- v24: frasi e obiettivo ---------- */
+.cover-fields dd.reached{color:#fff;font-weight:700}
+.sheet.sents{display:flex;flex-direction:column;gap:0}
+.sn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--paper-hi);color:var(--print);
+  border:1.5px solid var(--rule-soft);border-top:0;padding:10px 14px;cursor:pointer;font:inherit}
+.sn:first-child{border-top:1.5px solid var(--rule-soft)}
+.sn .h{font-family:var(--hand);font-size:26px;color:var(--ink)}
+.sn .m{font-size:14px;color:var(--print-soft);font-style:italic}
+.sn.did .h{color:var(--print-soft)}
+#practice.sent .practice-body{grid-template-columns:1fr;justify-items:center;gap:18px}
+#practice.sent .margin{order:-1;max-width:none;text-align:center}
+#practice.sent .boards{flex-wrap:wrap;justify-content:center}
+#practice.sent .board{border-left:2px solid var(--rule);margin:0 -1px -2px 0}
+#practice.sent .pinyin{font-size:28px;justify-content:center}
+#practice.sent .meaning{margin-bottom:10px}
+.example[hidden]{display:none}
+.pybtn{padding:2px 10px;font-size:14px;margin-left:8px}
+.say.veiled #pinyin{filter:blur(8px)}
+.heat button{position:relative}
+.heat button.goal::after{content:'';position:absolute;right:2px;top:2px;width:6px;height:6px;border-radius:50%;background:var(--red)}
+.done-stamp.small{font-size:44px}
+@media (max-width: 700px){.cover-fields{flex-wrap:wrap}}
+#practice.sent .board-col,#practice.sent .boards{width:100%}
