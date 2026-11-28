@@ -244,7 +244,8 @@ function startSession(chars, kind) {
   if (kind === 'review' || kind === 'sent') {
     chars.forEach(c => queue.push({ c, stage: 'recall' }));
   } else {
-    chars.forEach(c => queue.push({ c, stage: 'trace' }));
+    // ricalco con i tratti solo per quelli mai visti; quelli già in studio partono a memoria
+    chars.filter(c => !srs[c]).forEach(c => queue.push({ c, stage: 'trace' }));
     shuffle([...chars]).forEach(c => queue.push({ c, stage: 'recall' }));
   }
   total = queue.length; qIndex = 0; results = { good: 0, ok: 0, fail: 0, relapses: [], goal: false };
